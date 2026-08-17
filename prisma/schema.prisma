@@ -1,0 +1,263 @@
+// Tenvio V1 data model.
+//
+// Every business-owned row carries a businessId and every query in the app
+// must be scoped by the logged-in user's businessId — see src/lib/auth.ts
+// (requireSession) and the comment block at the top of src/actions/*.ts.
+// This file is the single source of truth for tenant isolation: if a model
+// holds data that belongs to one business, it MUST have a businessId column.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  STAFF
+}
+
+enum OfferSource {
+  LOYALTY_REWARD
+  CAMPAIGN_PROMO
+}
+
+enum MessageType {
+  WELCOME
+  LOYALTY_ONE_AWAY
+  REWARD_UNLOCKED
+  CAMPAIGN
+}
+
+enum MessageStatus {
+  SENT       // accepted by Twilio (or dev-mode simulated — see simulated flag)
+  DELIVERED  // confirmed delivered via Twilio status callback (not wired in V1, reserved)
+  FAILED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SENT
+}
+
+model Business {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  location   String?
+  createdAt  DateTime @default(now())
+
+  // V1 sends every business's texts from ONE shared Twilio number
+  // (TWILIO_PHONE_NUMBER env var) — this column exists so a future version
+  // can give each business its own dedicated number without a schema change.
+  // Important consequence while it's null/shared: the inbound STOP/START
+  // webhook (src/app/api/webhooks/twilio/route.ts) can't tell which business
+  // a reply was "meant for" on a shared number, so it opts a phone number out
+  // GLOBALLY across every business rather than guessing — see that file's
+  // comment for the full reasoning. Once businesses have dedicated numbers,
+  // the webhook should switch to scoping by this field instead.
+  twilioFromNumber String?
+
+  // Messaging preferences — owner-controlled, per your "never send without
+  // the owner knowing" requirement. Each trigger has its own toggle.
+  welcomeSmsEnabled  Boolean @default(true)
+  oneAwaySmsEnabled  Boolean @default(true)
+  rewardSmsEnabled   Boolean @default(true)
+
+  users          User[]
+  loyaltyProgram LoyaltyProgram?
+  customers      Customer[]
+  purchases      Purchase[]
+  offers         Offer[]
+  campaigns      Campaign[]
+  messages       Message[]
+  subscription   Subscription?
+}
+
+model User {
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id])
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(OWNER)
+  createdAt    DateTime @default(now())
+
+  purchasesLogged   Purchase[]
+  offersRedeemed    OfferRedemption[]
+
+  @@index([businessId])
+}
+
+model LoyaltyProgram {
+  id                String   @id @default(cuid())
+  businessId        String   @unique
+  business          Business @relation(fields: [businessId], references: [id])
+  purchasesRequired Int      @default(10)
+  rewardDescription String   @default("Free Coffee")
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Customer {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id])
+
+  phoneNumber   String   // normalized E.164-ish, e.g. +15551234567
+  firstName     String?
+  birthdayMonth Int?     // 1-12, optional, month/day only — no birth year stored
+  birthdayDay   Int?     // 1-31
+
+  signupAt      DateTime  @default(now())
+  lastVisitAt   DateTime?
+  totalVisits   Int       @default(0)
+
+  // Loyalty progress toward the CURRENT reward cycle. Resets to 0 when a
+  // reward is earned (see logPurchase in src/actions/purchase-actions.ts).
+  loyaltyCount     Int       @default(0)
+  lifetimeRewards  Int       @default(0)
+
+  // Guards against sending the "one away" text more than once per cycle.
+  // Set when the text goes out; cleared whenever loyaltyCount resets.
+  oneAwayNotifiedAt DateTime?
+
+  consent            CustomerConsent?
+  purchases          Purchase[]
+  offers             Offer[]
+  campaignRecipients CampaignRecipient[]
+  messages           Message[]
+
+  @@unique([businessId, phoneNumber])
+  @@index([businessId])
+}
+
+model CustomerConsent {
+  id           String    @id @default(cuid())
+  customerId   String    @unique
+  customer     Customer  @relation(fields: [customerId], references: [id])
+  optedInAt    DateTime  @default(now())
+  optInMethod  String    @default("qr_signup")
+  optedOutAt   DateTime?
+  optOutMethod String?
+}
+
+model Purchase {
+  id             String   @id @default(cuid())
+  businessId     String
+  business       Business @relation(fields: [businessId], references: [id])
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  loggedByUserId String?
+  loggedByUser   User?    @relation(fields: [loggedByUserId], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@index([businessId])
+  @@index([customerId])
+}
+
+// A single redeemable thing — either a loyalty reward earned by hitting the
+// program threshold, or a promo created by a campaign. Both share one
+// redemption mechanism (see src/lib/redemption.ts and the /redeem screen)
+// rather than duplicating the same logic across two separate table pairs.
+model Offer {
+  id          String      @id @default(cuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id])
+  customerId  String
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  campaignId  String?
+  campaign    Campaign?   @relation(fields: [campaignId], references: [id])
+
+  source      OfferSource
+  description String      // e.g. "Free Coffee" or "$1 Off Any Latte"
+
+  // Long opaque random string, encoded into the QR / redemption link.
+  token       String      @unique
+  // Short numeric fallback for manual entry at the register.
+  shortCode   String
+
+  expiresAt   DateTime?
+  createdAt   DateTime    @default(now())
+
+  redemption  OfferRedemption?
+
+  @@unique([businessId, shortCode])
+  @@index([businessId])
+  @@index([customerId])
+}
+
+model OfferRedemption {
+  id               String   @id @default(cuid())
+  offerId          String   @unique // DB-level guarantee: at most one redemption per offer
+  offer            Offer    @relation(fields: [offerId], references: [id])
+  redeemedAt       DateTime @default(now())
+  redeemedByUserId String?
+  redeemedByUser   User?    @relation(fields: [redeemedByUserId], references: [id])
+}
+
+model Campaign {
+  id          String         @id @default(cuid())
+  businessId  String
+  business    Business       @relation(fields: [businessId], references: [id])
+  name        String
+  offerDescription String?   // e.g. "$1 Off Any Latte" — null means no redeemable offer, just an SMS
+  messageBody String
+  status      CampaignStatus @default(DRAFT)
+  sentAt      DateTime?
+  createdAt   DateTime       @default(now())
+
+  recipients  CampaignRecipient[]
+  offers      Offer[]
+  messages    Message[]
+
+  @@index([businessId])
+}
+
+model CampaignRecipient {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  sentAt     DateTime @default(now())
+
+  @@unique([campaignId, customerId])
+  @@index([campaignId])
+}
+
+model Message {
+  id         String        @id @default(cuid())
+  businessId String
+  business   Business      @relation(fields: [businessId], references: [id])
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id])
+  campaignId String?
+  campaign   Campaign?     @relation(fields: [campaignId], references: [id])
+
+  type       MessageType
+  body       String
+  status     MessageStatus @default(SENT)
+  simulated  Boolean       @default(false) // true = dev-mode, no Twilio configured
+  twilioSid  String?
+  createdAt  DateTime      @default(now())
+
+  @@index([businessId])
+  @@index([customerId])
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  businessId           String   @unique
+  business             Business @relation(fields: [businessId], references: [id])
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  status               String   @default("dev_active") // dev_active | active | past_due | canceled | incomplete
+  plan                 String   @default("starter")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}

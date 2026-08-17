@@ -1,0 +1,61 @@
+import { z } from "zod";
+
+export const signUpSchema = z.object({
+  businessName: z.string().trim().min(2, "Business name is too short").max(120),
+  email: z.string().trim().toLowerCase().email("Enter a valid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const logInSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const onboardingSchema = z.object({
+  location: z.string().trim().max(200).optional(),
+  purchasesRequired: z.coerce.number().int().min(1).max(100),
+  rewardDescription: z.string().trim().min(2).max(120),
+});
+
+export const joinSchema = z.object({
+  phoneNumber: z.string().trim().min(10, "Enter a valid phone number"),
+  firstName: z.string().trim().max(80).optional().or(z.literal("")),
+  birthdayMonth: z.coerce.number().int().min(1).max(12).optional(),
+  birthdayDay: z.coerce.number().int().min(1).max(31).optional(),
+  consent: z.literal("on", { errorMap: () => ({ message: "Consent is required to join by SMS" }) }),
+});
+
+export const logPurchaseSchema = z.object({
+  customerId: z.string().min(1),
+});
+
+export const findOrCreateCustomerSchema = z.object({
+  phoneNumber: z.string().trim().min(10, "Enter a valid phone number"),
+  firstName: z.string().trim().max(80).optional().or(z.literal("")),
+});
+
+export const campaignSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  offerDescription: z.string().trim().max(120).optional().or(z.literal("")),
+  messageBody: z.string().trim().min(2).max(320),
+});
+
+export const redeemSchema = z.object({
+  code: z.string().trim().min(4).max(64),
+});
+
+export const settingsBusinessSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  location: z.string().trim().max(200).optional().or(z.literal("")),
+});
+
+export const settingsLoyaltySchema = z.object({
+  purchasesRequired: z.coerce.number().int().min(1).max(100),
+  rewardDescription: z.string().trim().min(2).max(120),
+});
+
+export const settingsMessagingSchema = z.object({
+  welcomeSmsEnabled: z.boolean(),
+  oneAwaySmsEnabled: z.boolean(),
+  rewardSmsEnabled: z.boolean(),
+});
