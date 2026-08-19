@@ -87,7 +87,7 @@ export default async function OverviewPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-fade">Tenvio Insight</p>
           {oneAwayCount > 0 && (
             <Card className="bg-orange-500/[0.06] border-orange-500/20">
-              <CardContent className="p-5 flex items-center justify-between">
+              <CardContent className="p-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="text-orange-600"><SparkIcon className="w-4 h-4" /></span>
                   <p className="text-sm text-ink">
@@ -104,7 +104,7 @@ export default async function OverviewPage() {
           )}
           {rewardsWaiting > 0 && (
             <Card className="bg-orange-500/[0.06] border-orange-500/20">
-              <CardContent className="p-5 flex items-center justify-between">
+              <CardContent className="p-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="text-orange-600"><SparkIcon className="w-4 h-4" /></span>
                   <p className="text-sm text-ink">

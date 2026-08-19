@@ -1,13 +1,14 @@
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { findOrCreateCustomerAction } from "@/actions/customer-actions";
-import { logPurchaseAction } from "@/actions/purchase-actions";
+import { logPurchaseAction, logPurchaseByTokenAction } from "@/actions/purchase-actions";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/badge";
 import { CheckCircleIcon, PhoneIcon } from "@/components/icons";
 import { formatPhone, initials } from "@/lib/utils";
+import { LogPurchaseScanPanel } from "@/components/log-purchase-scan-panel";
 
 export default async function LogPurchasePage({
   searchParams,
@@ -34,14 +35,25 @@ export default async function LogPurchasePage({
         </div>
       )}
 
-      {searchParams.result && customer && (
+      {searchParams.result === "reward" && customer && (
+        <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl p-5 mb-5">
+          <span className="text-emerald-600 mt-0.5">
+            <CheckCircleIcon className="w-5 h-5" />
+          </span>
+          <div>
+            <div className="font-extrabold text-base">
+              🎉 Congrats — {customer.firstName || "this customer"} just earned {program.rewardDescription.toLowerCase()}!
+            </div>
+            <div className="text-sm mt-0.5">Go ahead and hand it over. They'll also get a text with their reward code.</div>
+          </div>
+        </div>
+      )}
+      {searchParams.result && searchParams.result !== "reward" && customer && (
         <div className="flex items-start gap-3 bg-orange-500/10 border border-orange-500/25 text-orange-800 rounded-xl p-4 mb-5">
           <span className="text-orange-600 mt-0.5">
             <CheckCircleIcon className="w-4 h-4" />
           </span>
           <span className="text-sm">
-            {searchParams.result === "reward" &&
-              `Purchase added. ${customer.firstName || "This customer"} just earned ${program.rewardDescription} — a text went out to let them know.`}
             {searchParams.result === "one_away" &&
               `Purchase added. ${customer.firstName || "This customer"} is 1 away from a reward — a text went out to let them know.`}
             {searchParams.result === "logged" &&
@@ -49,6 +61,8 @@ export default async function LogPurchasePage({
           </span>
         </div>
       )}
+
+      <LogPurchaseScanPanel action={logPurchaseByTokenAction} />
 
       <Card className="mb-6">
         <CardContent className="p-6">

@@ -56,8 +56,8 @@ export default async function MessagesPage({ searchParams }: { searchParams: { t
         ))}
       </div>
 
-      <div className="bg-white border border-sand rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white border border-sand rounded-xl overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead className="bg-black/[0.02] text-fade text-left">
             <tr>
               <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Customer</th>

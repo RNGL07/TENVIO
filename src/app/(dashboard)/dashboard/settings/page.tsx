@@ -65,7 +65,7 @@ export default async function SettingsPage({
         <Card>
           <CardContent className="p-6">
             <form action={updateLoyaltySettingsAction} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="purchasesRequired">Purchases needed</Label>
                   <Input

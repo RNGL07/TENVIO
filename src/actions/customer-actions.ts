@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { joinSchema, findOrCreateCustomerSchema } from "@/lib/validation";
 import { normalizePhone } from "@/lib/utils";
 import { sendSms } from "@/lib/sms";
+import { ensureCustomerToken, generateCustomerToken } from "@/lib/customer-card";
 
 /** Public — no session. Anyone with a shop's QR/link can call this, which is
  * the point, but every write is scoped to the one business the slug resolves
@@ -61,7 +62,13 @@ export async function joinLoyaltyProgramAction(slug: string, formData: FormData)
     }
   }
 
-  redirect(`/join/${slug}/welcome?c=${customer.id}`);
+  // Same customer whether this is their first time joining or they scanned
+  // the shop's join QR again out of habit / forgetting they already signed
+  // up — the businessId+phoneNumber lookup above already returns their
+  // existing row instead of creating a duplicate, so this always resolves
+  // to their one permanent card token.
+  const qrToken = await ensureCustomerToken(customer);
+  redirect(`/c/${qrToken}?new=1`);
 }
 
 /** Staff-facing (session required) — used by the Log Purchase search box.
@@ -89,6 +96,7 @@ export async function findOrCreateCustomerAction(formData: FormData) {
         businessId: session.businessId,
         phoneNumber: phone,
         firstName: parsed.data.firstName || null,
+        qrToken: generateCustomerToken(),
       },
     });
     await prisma.customerConsent.create({

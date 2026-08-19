@@ -117,6 +117,19 @@ model Customer {
   lastVisitAt   DateTime?
   totalVisits   Int       @default(0)
 
+  // Long opaque random string, permanently tied to this one customer, encoded
+  // into their personal "loyalty card" QR (see /c/[token] and
+  // src/lib/customer-card.ts). Unlike Offer.token (single-use, one per
+  // reward), this token lives for the customer's whole relationship with the
+  // business and is what staff scan at checkout to log a purchase — scanning
+  // it never runs the balance-changing logic directly; it's just how the
+  // scanner finds the right Customer row, and the actual purchase-adding
+  // action still requires an authenticated staff session (see
+  // logPurchaseByTokenAction in src/actions/purchase-actions.ts). Nullable so
+  // existing rows created before this feature don't need a backfill
+  // migration — it's generated lazily the first time it's needed.
+  qrToken       String?   @unique
+
   // Loyalty progress toward the CURRENT reward cycle. Resets to 0 when a
   // reward is earned (see logPurchase in src/actions/purchase-actions.ts).
   loyaltyCount     Int       @default(0)

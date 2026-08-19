@@ -3,25 +3,28 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { getSession, type SessionPayload } from "@/lib/auth";
 import { sendSms } from "@/lib/sms";
 import { generateOfferToken, generateShortCode, offerExpiryDate } from "@/lib/redemption";
 
 /**
- * The core loop. Logs one qualifying purchase for a customer, atomically
- * updates their loyalty progress, and figures out whether this purchase
- * triggers a "one away" text or a reward. Everything that touches the
- * database happens in one transaction; the SMS send (an external side
- * effect) happens only after that transaction commits, so we never text
- * someone about a purchase that ended up not being saved.
+ * The core loop, shared by every entry point that can log a purchase (manual
+ * phone lookup on /dashboard/log-purchase, and scanning a customer's card —
+ * see logPurchaseByTokenAction below). Atomically updates loyalty progress
+ * and figures out whether this purchase triggers a "one away" text or a
+ * reward. Everything that touches the database happens in one transaction;
+ * the SMS send (an external side effect) happens only after that transaction
+ * commits, so we never text someone about a purchase that ended up not being
+ * saved.
+ *
+ * Every caller MUST have already confirmed `session` is a real, authenticated
+ * staff session before calling this — it's what makes it safe for a customer
+ * to carry their own card token around. The token only ever identifies which
+ * customer a scan means; it's this function's session check (done by every
+ * caller before reaching here) that actually gates adding value to an
+ * account. A customer scanning/loading their own card page never runs this.
  */
-export async function logPurchaseAction(formData: FormData) {
-  const session = getSession();
-  if (!session) redirect("/login");
-
-  const customerId = String(formData.get("customerId") || "");
-  if (!customerId) redirect("/dashboard/log-purchase?error=" + encodeURIComponent("Pick a customer first."));
-
+async function performLogPurchase(session: SessionPayload, customerId: string) {
   const result = await prisma.$transaction(async (tx) => {
     // Scoping this lookup to businessId is the tenant-isolation boundary —
     // a staff member can never log a purchase against another business's
@@ -117,6 +120,46 @@ export async function logPurchaseAction(formData: FormData) {
     threshold: String(threshold),
   });
   redirect(`/dashboard/log-purchase?${params.toString()}`);
+}
+
+/** The manual-entry path: staff typed/looked up a phone number on
+ * /dashboard/log-purchase and clicked "Add Purchase". */
+export async function logPurchaseAction(formData: FormData) {
+  const session = getSession();
+  if (!session) redirect("/login");
+
+  const customerId = String(formData.get("customerId") || "");
+  if (!customerId) redirect("/dashboard/log-purchase?error=" + encodeURIComponent("Pick a customer first."));
+
+  await performLogPurchase(session, customerId);
+}
+
+/** The scan path: staff scanned a customer's personal /c/[token] QR on the
+ * "Scan Card" tab of /dashboard/log-purchase. Requires the exact same
+ * authenticated staff session as the manual path — scanning a QR by itself
+ * never adds a purchase; this action is the only thing that can, and it's
+ * gated behind getSession() below just like every other write in this app.
+ * The token is resolved to a customer scoped to the staff member's OWN
+ * business, so a card from a different Tenvio business can never log a
+ * purchase here even if it were somehow scanned. */
+export async function logPurchaseByTokenAction(formData: FormData) {
+  const session = getSession();
+  if (!session) redirect("/login");
+
+  const token = String(formData.get("token") || "").trim();
+  if (!token) redirect("/dashboard/log-purchase?error=" + encodeURIComponent("No card detected — try scanning again."));
+
+  const customer = await prisma.customer.findFirst({
+    where: { qrToken: token, businessId: session.businessId },
+  });
+  if (!customer) {
+    redirect(
+      "/dashboard/log-purchase?error=" +
+        encodeURIComponent("That card isn't recognized here — it may be from a different business. Try the phone number instead.")
+    );
+  }
+
+  await performLogPurchase(session, customer.id);
 }
 
 function appUrl(): string {

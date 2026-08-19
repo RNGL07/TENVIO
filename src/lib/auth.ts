@@ -22,7 +22,7 @@ function getSecret(): string {
   return secret;
 }
 
-type SessionPayload = {
+export type SessionPayload = {
   userId: string;
   businessId: string;
   role: "OWNER" | "STAFF";

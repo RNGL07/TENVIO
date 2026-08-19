@@ -18,8 +18,8 @@ export default function SignUpPage({ searchParams }: { searchParams: { error?: s
               Turn first visits<br />into regulars.
             </h2>
             <p className="text-white/60 text-sm leading-relaxed">
-              A loyalty and messaging platform built for coffee shops — no app for customers to
-              download, no hardware to buy.
+              A loyalty and messaging platform built for local businesses — no app for customers
+              to download, no hardware to buy.
             </p>
           </div>
           <ul className="space-y-3 text-sm text-white/85">

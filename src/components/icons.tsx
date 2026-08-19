@@ -7,16 +7,34 @@ function base(props: SVGProps<SVGSVGElement>) {
   return { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, ...props };
 }
 
+// The "T + return arrow" mark — a T (for Tenvio) inside a mostly-closed
+// circular arrow (customers coming back). The gradient uses userSpaceOnUse
+// with absolute coordinates rather than the objectBoundingBox default:
+// perfectly horizontal/vertical strokes (the T's bar and stem) have a
+// zero-height or zero-width bounding box, and objectBoundingBox gradients
+// silently render as invisible on those — a real, easy-to-hit SVG gotcha.
 export function LogoMark(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg width={22} height={22} viewBox="0 0 24 24" fill="url(#tenvioGrad)" {...props}>
+    <svg width={22} height={22} viewBox="0 0 48 48" {...props}>
       <defs>
-        <linearGradient id="tenvioGrad" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="tenvioGrad" x1="0" y1="0" x2="0" y2="48" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#fb923c" />
           <stop offset="100%" stopColor="#ea580c" />
         </linearGradient>
       </defs>
-      <path d="M12 2C12 2 5.5 10.5 5.5 14.5a6.5 6.5 0 0 0 13 0C18.5 10.5 12 2 12 2Z" />
+      {/* Return-arrow ring, open near the top */}
+      <path
+        d="M 40.5 27 A 16.5 16.5 0 1 1 29 10"
+        fill="none"
+        stroke="url(#tenvioGrad)"
+        strokeWidth={4}
+        strokeLinecap="round"
+      />
+      {/* Arrowhead at the ring's open end */}
+      <path d="M 25 6.5 L 32.5 8.8 L 27 14 Z" fill="url(#tenvioGrad)" />
+      {/* T — bar and stem */}
+      <path d="M15 21 H33" fill="none" stroke="url(#tenvioGrad)" strokeWidth={5.5} strokeLinecap="round" />
+      <path d="M24 21 V37" fill="none" stroke="url(#tenvioGrad)" strokeWidth={5.5} strokeLinecap="round" />
     </svg>
   );
 }
@@ -155,6 +173,22 @@ export function PlusIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)} strokeWidth={2}>
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function MenuIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)} strokeWidth={2}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
+export function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)} strokeWidth={2}>
+      <path d="M6 6l12 12M18 6 6 18" />
     </svg>
   );
 }
