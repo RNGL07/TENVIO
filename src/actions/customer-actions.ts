@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { getBusinessAccess } from "@/lib/access";
 import { joinSchema, findOrCreateCustomerSchema } from "@/lib/validation";
 import { normalizePhone } from "@/lib/utils";
 import { sendSms } from "@/lib/sms";
@@ -17,6 +18,14 @@ export async function joinLoyaltyProgramAction(slug: string, formData: FormData)
     include: { loyaltyProgram: true },
   });
   if (!business || !business.loyaltyProgram) {
+    redirect(`/join/${slug}?error=${encodeURIComponent("This rewards program isn't available right now.")}`);
+  }
+
+  // Public entry point with no session concept for the customer — a
+  // restricted business fails the same friendly way as a missing program
+  // rather than exposing any billing detail to a customer scanning a QR.
+  const access = await getBusinessAccess(business.id);
+  if (access !== "FULL") {
     redirect(`/join/${slug}?error=${encodeURIComponent("This rewards program isn't available right now.")}`);
   }
 
@@ -76,6 +85,9 @@ export async function joinLoyaltyProgramAction(slug: string, formData: FormData)
 export async function findOrCreateCustomerAction(formData: FormData) {
   const session = getSession();
   if (!session) redirect("/login");
+
+  const access = await getBusinessAccess(session.businessId);
+  if (access !== "FULL") redirect("/dashboard/billing?restricted=1");
 
   const parsed = findOrCreateCustomerSchema.safeParse({
     phoneNumber: formData.get("phoneNumber"),
