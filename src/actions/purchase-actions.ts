@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession, type SessionPayload } from "@/lib/auth";
+import { getBusinessAccess } from "@/lib/access";
 import { sendSms } from "@/lib/sms";
 import { generateOfferToken, generateShortCode, offerExpiryDate } from "@/lib/redemption";
 
@@ -25,6 +26,17 @@ import { generateOfferToken, generateShortCode, offerExpiryDate } from "@/lib/re
  * account. A customer scanning/loading their own card page never runs this.
  */
 async function performLogPurchase(session: SessionPayload, customerId: string) {
+  // Single choke point for both entry points below (manual lookup and QR
+  // scan) — gating here instead of in each exported action guarantees
+  // neither path can ever log a purchase while restricted.
+  const access = await getBusinessAccess(session.businessId);
+  if (access !== "FULL") {
+    redirect(
+      "/dashboard/log-purchase?error=" +
+        encodeURIComponent("Your Tenvio account access is currently restricted — visit Billing to restore full access.")
+    );
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     // Scoping this lookup to businessId is the tenant-isolation boundary —
     // a staff member can never log a purchase against another business's
