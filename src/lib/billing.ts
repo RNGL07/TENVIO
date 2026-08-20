@@ -51,9 +51,14 @@ export async function createCheckoutSession(businessId: string, businessEmail: s
     metadata: { businessId },
   });
 
+  // Phase A compile-fix: "incomplete" isn't a SubscriptionStatus value in
+  // the new enum. Real Checkout-session-to-subscription-status wiring
+  // (and the local-trial-vs-Stripe-authoritative handoff) is Phase B's
+  // job — for now this just stops writing an invalid status and leaves
+  // the row at its default (TRIAL) until the webhook handler updates it.
   await prisma.subscription.upsert({
     where: { businessId },
-    create: { businessId, stripeCustomerId: customerId, status: "incomplete" },
+    create: { businessId, stripeCustomerId: customerId },
     update: { stripeCustomerId: customerId },
   });
 
