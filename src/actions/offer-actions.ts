@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { getBusinessAccess } from "@/lib/access";
 import { redeemSchema } from "@/lib/validation";
 
 /**
@@ -23,6 +24,9 @@ import { redeemSchema } from "@/lib/validation";
 export async function redeemOfferAction(formData: FormData) {
   const session = getSession();
   if (!session) redirect("/login");
+
+  const access = await getBusinessAccess(session.businessId);
+  if (access !== "FULL") redirect("/dashboard/billing?restricted=1");
 
   const parsed = redeemSchema.safeParse({ code: formData.get("code") });
   if (!parsed.success) {

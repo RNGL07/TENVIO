@@ -5,7 +5,12 @@ import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword, setSessionCookie, clearSessionCookie } from "@/lib/auth";
 import { signUpSchema, logInSchema } from "@/lib/validation";
 import { createCheckoutSession } from "@/lib/billing";
+import { getActivePlan } from "@/lib/plans";
 import { slugify } from "@/lib/utils";
+
+// Fallback only — used if no Plan row is active/found, which shouldn't
+// happen in practice but must never crash signup if it does.
+const DEFAULT_TRIAL_DAYS = 14;
 
 async function uniqueSlugFor(name: string): Promise<string> {
   const base = slugify(name) || "shop";
@@ -38,6 +43,9 @@ export async function signUpAction(formData: FormData) {
   const slug = await uniqueSlugFor(businessName);
   const passwordHash = await hashPassword(password);
 
+  // signUpAction is the ONLY place a Business row is created (confirmed by
+  // audit before Phase B) — so this is the one place a Subscription needs to
+  // be initialized, guaranteeing no business can ever exist without one.
   const business = await prisma.business.create({ data: { name: businessName, slug } });
   const user = await prisma.user.create({
     data: { businessId: business.id, email, passwordHash, role: "OWNER" },
@@ -45,17 +53,32 @@ export async function signUpAction(formData: FormData) {
 
   setSessionCookie({ userId: user.id, businessId: business.id, role: "OWNER" });
 
+  // BILLING_LIVE_MODE is false until Phase C sets STRIPE_SECRET_KEY/
+  // STRIPE_PRICE_ID, so this always returns null today and every signup
+  // falls through to the local trial below — no Stripe Customer/Subscription
+  // object is created at signup time in Phase B.
   const checkoutUrl = await createCheckoutSession(business.id, email);
   if (checkoutUrl) {
     redirect(checkoutUrl);
   }
-  // Phase A compile-fix: "dev_active" isn't a SubscriptionStatus value in
-  // the new enum. Real trial-start wiring (trialStartedAt/trialEndsAt/
-  // trialSource) is Phase B's job — for now this just leaves the row at
-  // its default (TRIAL) instead of writing an invalid status string.
+
+  // Phase B: local, no-card trial. trialEndsAt (not the stored status) is
+  // what lib/access.ts derives FULL/RESTRICTED from once it passes — see
+  // that file's comment for why status itself doesn't flip on expiry.
+  // Trial length comes from the active Plan (Admin-configurable, Phase G)
+  // rather than a hardcoded constant — see lib/plans.ts.
+  const activePlan = await getActivePlan();
+  const trialDays = activePlan?.trialDays ?? DEFAULT_TRIAL_DAYS;
+  const trialStartedAt = new Date();
   await prisma.subscription.upsert({
     where: { businessId: business.id },
-    create: { businessId: business.id },
+    create: {
+      businessId: business.id,
+      status: "TRIAL",
+      trialStartedAt,
+      trialEndsAt: new Date(trialStartedAt.getTime() + trialDays * 24 * 60 * 60 * 1000),
+      trialSource: "SELF_SERVICE",
+    },
     update: {},
   });
 
