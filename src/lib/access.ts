@@ -31,12 +31,17 @@ import { prisma } from "@/lib/db";
 
 export type Access = "FULL" | "RESTRICTED";
 
-type AccessInput = Pick<
+type AccessInput = Pick
   Subscription,
-  "status" | "trialEndsAt" | "currentPeriodEnd" | "compedUntil"
+  "status" | "trialEndsAt" | "currentPeriodEnd" | "compedUntil" | "adminRestrictedAt"
 >;
 
 export function deriveAccess(subscription: AccessInput): Access {
+  // Admin-forced lockout overrides everything else, including an
+  // otherwise-paying ACTIVE subscription — see the field's comment in
+  // schema.prisma. This check must stay first.
+  if (subscription.adminRestrictedAt) return "RESTRICTED";
+
   const now = Date.now();
 
   switch (subscription.status) {
