@@ -43,6 +43,73 @@ enum CampaignStatus {
   SENT
 }
 
+// --- Billing / subscription lifecycle -------------------------------------
+//
+// SubscriptionStatus is the lifecycle state (what's actually happening with
+// billing) — deliberately kept to exactly the states that drive different
+// behavior, nothing redundant:
+//   TRIAL      — no Stripe subscription exists yet; trialEndsAt is authoritative.
+//   ACTIVE     — a real Stripe subscription, in good standing.
+//   PAST_DUE   — Stripe is retrying a failed payment (Smart Retries). We do
+//                NOT run our own dunning/grace-period timer — see the
+//                Subscription model comment.
+//   CANCELING  — active subscription with cancelAtPeriodEnd=true. Written by
+//                exactly one place (the Stripe webhook handler, or the
+//                cancel action) from a single Stripe payload, never derived
+//                independently elsewhere, so it can never drift out of sync
+//                with cancelAtPeriodEnd.
+//   CANCELED   — subscription has actually ended.
+//   COMPED     — full access granted by a Tenvio admin, no Stripe object
+//                required at all (see compedReason/compedByAdminId/compedUntil).
+//
+// This is a distinct axis from product ACCESS (FULL vs RESTRICTED), which is
+// derived from this status (plus trialEndsAt/compedUntil/currentPeriodEnd)
+// by a single centralized guard — see lib/access.ts (Phase B). Nothing
+// outside that guard should branch on SubscriptionStatus directly.
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELING
+  CANCELED
+  COMPED
+}
+
+// How a TRIAL subscription's free period was granted — distinguishes the
+// default self-service trial from one a Tenvio admin set up by hand (a
+// founder-led pilot), purely for admin-side reporting/context.
+enum TrialSource {
+  SELF_SERVICE
+  FOUNDER_GRANT
+}
+
+// A Plan's billing cadence. Only MONTH ships in V1 — see Plan model comment
+// — but Subscription/display code should read this rather than hardcode
+// "/month" anywhere, so adding a YEAR plan later doesn't require touching
+// unrelated display logic.
+enum PlanInterval {
+  MONTH
+  YEAR
+}
+
+enum CancellationReason {
+  TOO_EXPENSIVE
+  NOT_USING_ENOUGH
+  MISSING_FEATURE
+  DIFFICULT_TO_USE
+  SWITCHING
+  CLOSING_BUSINESS
+  TECHNICAL_PROBLEMS
+  DIDNT_SEE_VALUE
+  TEMPORARY_SEASONAL
+  OTHER
+}
+
+enum CancellationInitiator {
+  MERCHANT
+  ADMIN
+}
+
 model Business {
   id         String   @id @default(cuid())
   name       String
@@ -75,6 +142,8 @@ model Business {
   campaigns      Campaign[]
   messages       Message[]
   subscription   Subscription?
+  cancellations  Cancellation[]
+  adminAuditLogs AdminAuditLog[]
 }
 
 model User {
@@ -263,14 +332,149 @@ model Message {
   @@index([customerId])
 }
 
+// A Plan is a distinct, named offer at a distinct Stripe Price — NOT a
+// mirror of every field Stripe already owns. Stripe Prices are immutable by
+// design (you create a new Price to change pricing, never mutate an old
+// one), which is exactly the grandfathering primitive this table leans on:
+// a business's Subscription.planId points at whichever Plan/Price it
+// actually checked out under, and changing which Plan is `active` for NEW
+// signups never touches existing subscriptions.
+//
+// amountCents/currency/interval are a CACHED display copy for admin UI and
+// MRR math — Stripe remains the source of truth for what's actually
+// charged. Named `amountCents` (not `monthlyAmountCents`) because `interval`
+// is what determines monthly vs. annual, not the field name.
+model Plan {
+  id            String       @id @default(cuid())
+  key           String       @unique // "founding" | "standard" | ...
+  name          String                // "Tenvio Founding"
+  stripePriceId String       @unique
+  amountCents   Int
+  currency      String       @default("usd")
+  interval      PlanInterval @default(MONTH)
+  active        Boolean      @default(true) // offered to new self-service signups?
+  createdAt     DateTime     @default(now())
+
+  subscriptions Subscription[]
+}
+
 model Subscription {
-  id                   String   @id @default(cuid())
-  businessId           String   @unique
-  business             Business @relation(fields: [businessId], references: [id])
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id])
+
+  planId String?
+  plan   Plan?   @relation(fields: [planId], references: [id])
+
+  status SubscriptionStatus @default(TRIAL)
+
+  // Null until a real Stripe Checkout completes — see TRIAL comment above
+  // and the SubscriptionStatus enum comment. Once set, Stripe is
+  // authoritative for this subscription's lifecycle; these mirror what the
+  // most recent webhook told us, they are not independently computed.
   stripeCustomerId     String?
   stripeSubscriptionId String?
-  status               String   @default("dev_active") // dev_active | active | past_due | canceled | incomplete
-  plan                 String   @default("starter")
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+
+  // --- Local trial (no Stripe object involved at all) ---
+  trialStartedAt DateTime?
+  trialEndsAt    DateTime?
+  trialSource    TrialSource?
+  // Which Tenvio admin granted/extended a founder-led trial, for context —
+  // null for the default self-service trial. Nullable FK: an AdminUser can
+  // be removed later without breaking historical Subscription rows.
+  trialGrantedByAdminId String?
+  trialGrantedByAdmin   AdminUser? @relation("SubscriptionTrialGrantedBy", fields: [trialGrantedByAdminId], references: [id])
+
+  // --- Cancellation, mirrored from Stripe ---
+  // cancelAtPeriodEnd + currentPeriodEnd are the raw Stripe attributes;
+  // status=CANCELING is the derived lifecycle label written from the same
+  // webhook payload (see SubscriptionStatus comment) — never set elsewhere.
+  cancelAtPeriodEnd Boolean   @default(false)
+  currentPeriodEnd  DateTime?
+  canceledAt        DateTime?
+
+  // --- Comp (full access, no Stripe subscription, no charge) ---
+  compedReason    String?
+  compedByAdminId String?
+  compedByAdmin   AdminUser? @relation("SubscriptionCompedBy", fields: [compedByAdminId], references: [id])
+  compedAt        DateTime?
+  compedUntil     DateTime? // null = indefinite
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cancellations Cancellation[]
+}
+
+// A completely separate authentication surface from merchant Users — see
+// lib/admin-auth.ts (Phase B/E) and the architecture report's §63 tradeoff
+// discussion. Deliberately minimal: no roles/permission tiers, no teams, no
+// SSO — everyone in this table is a full Tenvio operator. Rows are
+// provisioned by hand (seed/direct insert), never via self-service signup.
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  grantedTrials       Subscription[]  @relation("SubscriptionTrialGrantedBy")
+  compedSubscriptions Subscription[]  @relation("SubscriptionCompedBy")
+  auditLogs           AdminAuditLog[]
+}
+
+// A record of a sensitive admin action — trial extended, account comped,
+// restricted, terminated, subscription canceled, etc. `action` is a plain
+// string constant (not an enum) deliberately: new action types should never
+// require a schema migration, unlike SubscriptionStatus which genuinely
+// needs to be a closed, compiler-checked set because access logic branches
+// on it. `businessId` is nullable because some admin actions are global
+// (e.g. deactivating a Plan) rather than about one business.
+model AdminAuditLog {
+  id         String     @id @default(cuid())
+  adminId    String
+  admin      AdminUser  @relation(fields: [adminId], references: [id])
+  businessId String?
+  business   Business?  @relation(fields: [businessId], references: [id])
+  action     String
+  reason     String?
+  metadata   Json?
+  createdAt  DateTime   @default(now())
+
+  @@index([businessId])
+  @@index([adminId])
+}
+
+// One row per cancellation *request* — including ones later undone, so the
+// reason/feedback record is never lost. The "Tenvio Impact" summary shown
+// to a cancelling merchant is deliberately NOT stored here: it's computed
+// live from Customer/Purchase/Offer/Message counts at render time, since
+// those numbers are cheap to query and a stored snapshot would just drift
+// out of date (especially across an undo + re-cancel). Only the decision
+// itself is a permanent record.
+model Cancellation {
+  id             String                @id @default(cuid())
+  businessId     String
+  business       Business              @relation(fields: [businessId], references: [id])
+  subscriptionId String
+  subscription   Subscription          @relation(fields: [subscriptionId], references: [id])
+  requestedAt    DateTime              @default(now())
+  effectiveAt    DateTime
+  reason         CancellationReason
+  feedback       String?
+  initiatedBy    CancellationInitiator
+  cancelAtPeriodEnd Boolean
+  reactivatedAt  DateTime?
+
+  @@index([businessId])
+  @@index([subscriptionId])
+}
+
+// Idempotency guard for the Stripe webhook handler — insert-or-skip by
+// Stripe's own event id BEFORE processing an event body, so a redelivered
+// event is a guaranteed no-op instead of relying on handlers happening to
+// be overwrites.
+model StripeWebhookEvent {
+  id          String   @id // the Stripe event id itself, e.g. "evt_..."
+  type        String
+  processedAt DateTime @default(now())
 }

@@ -49,9 +49,13 @@ export async function signUpAction(formData: FormData) {
   if (checkoutUrl) {
     redirect(checkoutUrl);
   }
+  // Phase A compile-fix: "dev_active" isn't a SubscriptionStatus value in
+  // the new enum. Real trial-start wiring (trialStartedAt/trialEndsAt/
+  // trialSource) is Phase B's job — for now this just leaves the row at
+  // its default (TRIAL) instead of writing an invalid status string.
   await prisma.subscription.upsert({
     where: { businessId: business.id },
-    create: { businessId: business.id, status: "dev_active" },
+    create: { businessId: business.id },
     update: {},
   });
 
