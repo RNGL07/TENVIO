@@ -17,6 +17,7 @@ import {
   PlusIcon,
   MenuIcon,
   CloseIcon,
+  SparkIcon,
 } from "@/components/icons";
 
 const NAV = [
@@ -25,6 +26,7 @@ const NAV = [
   { href: "/dashboard/loyalty", label: "Loyalty", icon: LoyaltyIcon },
   { href: "/dashboard/campaigns", label: "Campaigns", icon: MegaphoneIcon },
   { href: "/dashboard/messages", label: "Messages", icon: MessageIcon },
+  { href: "/dashboard/billing", label: "Billing", icon: SparkIcon },
 ];
 
 /**
