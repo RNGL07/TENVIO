@@ -31,7 +31,7 @@ import { prisma } from "@/lib/db";
 
 export type Access = "FULL" | "RESTRICTED";
 
-type AccessInput = Pick
+type AccessInput = Pick<
   Subscription,
   "status" | "trialEndsAt" | "currentPeriodEnd" | "compedUntil" | "adminRestrictedAt"
 >;
