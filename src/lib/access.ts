@@ -23,7 +23,7 @@ import { prisma } from "@/lib/db";
  * the stored `status` to a different value just because a date passed —
  * there's no cron/webhook driving that transition, and every access check
  * already re-derives from the date, so mutating status on read would only
- * make it lie about *when*/*why* the subscription was originally set up, for
+ *  * make it lie about when or why the subscription was originally set up, for
  * zero functional benefit. status changes only ever happen in response to an
  * explicit event: a Stripe webhook (Phase C), an admin action, or someone
  * starting a trial.
