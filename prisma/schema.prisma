@@ -348,7 +348,7 @@ model Plan {
   id            String       @id @default(cuid())
   key           String       @unique // "founding" | "standard" | ...
   name          String                // "Tenvio Founding"
-  stripePriceId String       @unique
+    stripePriceId String?      @unique
   amountCents   Int
   currency      String       @default("usd")
   interval      PlanInterval @default(MONTH)
