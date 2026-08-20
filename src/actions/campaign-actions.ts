@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { getBusinessAccess } from "@/lib/access";
 import { campaignSchema } from "@/lib/validation";
 import { sendSms } from "@/lib/sms";
 import { generateOfferToken, generateShortCode, offerExpiryDate } from "@/lib/redemption";
@@ -20,6 +21,9 @@ import { generateOfferToken, generateShortCode, offerExpiryDate } from "@/lib/re
 export async function createAndSendCampaignAction(formData: FormData) {
   const session = getSession();
   if (!session) redirect("/login");
+
+  const access = await getBusinessAccess(session.businessId);
+  if (access !== "FULL") redirect("/dashboard/billing?restricted=1");
 
   const parsed = campaignSchema.safeParse({
     name: formData.get("name"),
