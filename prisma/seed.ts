@@ -71,10 +71,13 @@ async function main() {
     },
   });
 
+  // Phase A compile-fix: status/plan were free-text fields, now a typed
+  // SubscriptionStatus enum (defaults to TRIAL) plus a real Plan relation.
+  // Wiring real trial/plan values into the seed is Phase B's job.
   await prisma.subscription.upsert({
     where: { businessId: business.id },
     update: {},
-    create: { businessId: business.id, status: "dev_active", plan: "starter" },
+    create: { businessId: business.id },
   });
 
   // --- Customers -----------------------------------------------------------
