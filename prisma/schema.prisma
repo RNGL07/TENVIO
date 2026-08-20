@@ -348,16 +348,20 @@ model Plan {
   id            String       @id @default(cuid())
   key           String       @unique // "founding" | "standard" | ...
   name          String                // "Tenvio Founding"
-    stripePriceId String?      @unique
+  stripePriceId String?      @unique
   amountCents   Int
   currency      String       @default("usd")
   interval      PlanInterval @default(MONTH)
   active        Boolean      @default(true) // offered to new self-service signups?
+  // Default trial length offered to a self-service signup on this Plan —
+  // Admin-configurable (Phase G) so changing it is an UPDATE, not a
+  // deploy. See src/lib/plans.ts getActivePlan(), the one place this is
+  // read from.
+  trialDays     Int          @default(14)
   createdAt     DateTime     @default(now())
 
   subscriptions Subscription[]
 }
-
 model Subscription {
   id         String   @id @default(cuid())
   businessId String   @unique
@@ -400,6 +404,19 @@ model Subscription {
   compedAt        DateTime?
   compedUntil     DateTime? // null = indefinite
 
+  // --- Admin-forced lockout, independent of billing state ---
+  // For abuse, a payment dispute outside Stripe's normal flow, or any other
+  // reason Tenvio staff need to cut off an otherwise-paying account without
+  // touching Stripe. deriveAccess() (src/lib/access.ts) checks this FIRST,
+  // before any status/date logic — set it and access is RESTRICTED
+  // regardless of what status/trialEndsAt/etc. say. Reactivating is just
+  // clearing this field; the "when/why/who" history lives in
+  // AdminAuditLog, not here — same split as the comp fields above.
+  adminRestrictedAt       DateTime?
+  adminRestrictedReason   String?
+  adminRestrictedByAdminId String?
+  adminRestrictedByAdmin   AdminUser? @relation("SubscriptionAdminRestrictedBy", fields: [adminRestrictedByAdminId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -417,11 +434,11 @@ model AdminUser {
   passwordHash String
   createdAt    DateTime @default(now())
 
-  grantedTrials       Subscription[]  @relation("SubscriptionTrialGrantedBy")
-  compedSubscriptions Subscription[]  @relation("SubscriptionCompedBy")
-  auditLogs           AdminAuditLog[]
+  grantedTrials         Subscription[]  @relation("SubscriptionTrialGrantedBy")
+  compedSubscriptions   Subscription[]  @relation("SubscriptionCompedBy")
+  restrictedSubscriptions Subscription[] @relation("SubscriptionAdminRestrictedBy")
+  auditLogs             AdminAuditLog[]
 }
-
 // A record of a sensitive admin action — trial extended, account comped,
 // restricted, terminated, subscription canceled, etc. `action` is a plain
 // string constant (not an enum) deliberately: new action types should never
