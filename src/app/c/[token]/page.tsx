@@ -14,7 +14,7 @@ import { LogoMark } from "@/components/icons";
  * Public, no session required — a customer only ever has their own link
  * (bookmarked, saved as a photo, etc.), and the token itself is what proves
  * it's theirs. Scanning it can never change anything by itself; only an
- * authenticated staff member submitting logPurchaseByTokenAction can.
+ * authenticated staff member submitting createPurchaseByTokenAction can.
  */
 export default async function CustomerCardPage({
   params,

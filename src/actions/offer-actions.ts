@@ -42,7 +42,7 @@ export async function redeemOfferAction(formData: FormData) {
     include: { redemption: true, customer: true },
   });
 
-  if (!offer) {
+  if (!offer || offer.voidedAt) {
     redirect("/dashboard/redeem?result=not_found");
   }
   if (offer.redemption) {

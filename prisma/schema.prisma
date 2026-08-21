@@ -110,6 +110,18 @@ enum CancellationInitiator {
   ADMIN
 }
 
+// How a business measures loyalty progress. PER_SPEND is reserved but not
+// yet implemented anywhere (no UI, no logic reads it) — Tenvio has no
+// POS/order data source to know how much a customer spent, so building
+// spend-based earning now would be UI without real data behind it. Added to
+// the enum now purely so a future POS integration doesn't need its own
+// migration just to add this value.
+enum LoyaltyEarningMode {
+  PER_VISIT  // one loyalty unit per interaction, regardless of quantity
+  PER_UNIT   // loyalty units = quantity of qualifying items/services
+  PER_SPEND  // reserved, not implemented
+}
+
 model Business {
   id         String   @id @default(cuid())
   name       String
@@ -162,14 +174,17 @@ model User {
 }
 
 model LoyaltyProgram {
-  id                String   @id @default(cuid())
-  businessId        String   @unique
-  business          Business @relation(fields: [businessId], references: [id])
-  purchasesRequired Int      @default(10)
-  rewardDescription String   @default("Free Coffee")
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                String             @id @default(cuid())
+  businessId        String             @unique
+  business          Business           @relation(fields: [businessId], references: [id])
+  purchasesRequired Int                @default(10)
+  rewardDescription String             @default("Free Coffee")
+  // Default PER_VISIT preserves today's behavior for every existing
+  // business — this is an opt-in, not a retroactive change.
+  earningMode       LoyaltyEarningMode @default(PER_VISIT)
+  active            Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model Customer {
@@ -238,6 +253,47 @@ model Purchase {
   loggedByUser   User?    @relation(fields: [loggedByUserId], references: [id])
   createdAt      DateTime @default(now())
 
+  // Loyalty units this interaction is worth. Always 1 under PER_VISIT
+  // (quantity is irrelevant there); under PER_UNIT it's however many
+  // qualifying items/services staff selected — one Purchase row per scan,
+  // never one row per unit, so "scan once, quantity 3" never triple-scans.
+  quantity       Int      @default(1)
+
+  // Client-generated per-scan-attempt key (see log-purchase-scan-panel.tsx).
+  // A retried/double-submitted request with the same key is a no-op instead
+  // of creating a second row — see createPurchaseByTokenAction.
+  idempotencyKey String?  @unique
+
+  // Deferred-SMS reversal window (see purchase-actions.ts). Undo is only
+  // allowed while finalizedAt is still null; once the SMS decision has been
+  // finalized, the interaction is permanent. voidedAt marks a reversed
+  // Purchase rather than deleting it, so it stays visible for support/audit
+  // — counts and stats must filter WHERE voidedAt IS NULL.
+  finalizedAt    DateTime?
+  voidedAt       DateTime?
+
+  // What this interaction's outcome was, captured at creation time so
+  // finalizePurchaseAction/undoPurchaseAction don't have to re-derive it
+  // later (which would be fragile — e.g. a later purchase could also
+  // trigger a reward, making "the most recent reward offer" ambiguous).
+  // Deliberately a plain scalar, not a Prisma relation back to Offer — this
+  // is internal plumbing for the finalize/undo pair, never queried from UI.
+  wasOneAway          Boolean  @default(false)
+  rewardOfferId       String?
+
+  // Exact Customer counter snapshot immediately before this purchase was
+  // applied — undoPurchaseAction restores these verbatim rather than trying
+  // to recompute "what it must have been," which breaks the moment quantity
+  // overshoots a threshold (the discarded excess makes the reverse
+  // calculation ambiguous). Defaulted rather than nullable so the existing-
+  // row backfill in this migration (finalizedAt = createdAt) doesn't need a
+  // second migration to add NOT NULL columns — pre-migration rows are never
+  // undoable anyway (see the backfill), so their snapshot values are unused.
+  loyaltyCountBefore      Int       @default(0)
+  totalVisitsBefore       Int       @default(0)
+  lifetimeRewardsBefore   Int       @default(0)
+  oneAwayNotifiedAtBefore DateTime?
+
   @@index([businessId])
   @@index([customerId])
 }
@@ -265,6 +321,12 @@ model Offer {
 
   expiresAt   DateTime?
   createdAt   DateTime    @default(now())
+
+  // Set when the Purchase that earned this reward is undone within its
+  // finalize window (see purchase-actions.ts undoPurchaseAction) — a voided
+  // reward Offer must never be redeemable. Not used for CAMPAIGN_PROMO
+  // offers, which have no undo path.
+  voidedAt    DateTime?
 
   redemption  OfferRedemption?
 

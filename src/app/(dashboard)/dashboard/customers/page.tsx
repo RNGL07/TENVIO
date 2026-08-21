@@ -26,7 +26,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
         : {}),
     },
     include: {
-      offers: { where: { source: "LOYALTY_REWARD", redemption: null }, take: 1 },
+      offers: { where: { source: "LOYALTY_REWARD", redemption: null, voidedAt: null }, take: 1 },
     },
     orderBy: { signupAt: "desc" },
     take: 100,

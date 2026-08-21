@@ -22,9 +22,9 @@ export default async function CustomerProfilePage({ params }: { params: { id: st
   if (!customer) notFound();
 
   const [purchases, offers, messages] = await Promise.all([
-    prisma.purchase.findMany({ where: { customerId: customer.id }, orderBy: { createdAt: "desc" } }),
+    prisma.purchase.findMany({ where: { customerId: customer.id, voidedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.offer.findMany({
-      where: { customerId: customer.id },
+      where: { customerId: customer.id, voidedAt: null },
       include: { redemption: true, campaign: true },
       orderBy: { createdAt: "desc" },
     }),
@@ -48,7 +48,11 @@ export default async function CustomerProfilePage({ params }: { params: { id: st
 
   const activity: ActivityItem[] = [
     { at: customer.signupAt, title: `Joined ${business.name} Rewards` },
-    ...purchases.map((p) => ({ at: p.createdAt, title: "Coffee purchase logged", subtitle: "+1 loyalty progress" })),
+    ...purchases.map((p) => ({
+      at: p.createdAt,
+      title: "Coffee purchase logged",
+      subtitle: `+${program.earningMode === "PER_VISIT" ? 1 : p.quantity} loyalty progress`,
+    })),
     ...offers.map((o) => ({
       at: o.createdAt,
       title: o.source === "LOYALTY_REWARD" ? `Reward unlocked: ${o.description}` : `Received offer: ${o.description}`,

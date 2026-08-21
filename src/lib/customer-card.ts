@@ -14,7 +14,7 @@ import type { Customer } from "@prisma/client";
  *
  * Important: possessing this token only ever identifies WHICH customer a
  * scan refers to. It never mutates anything by itself — every action that
- * changes loyalty data (logPurchaseByTokenAction) still requires an
+ * changes loyalty data (createPurchaseByTokenAction) still requires an
  * authenticated staff session on top of a valid token. See the comment on
  * Customer.qrToken in prisma/schema.prisma for the full reasoning.
  */

@@ -65,9 +65,46 @@ export default async function SettingsPage({
         <Card>
           <CardContent className="p-6">
             <form action={updateLoyaltySettingsAction} className="space-y-4">
+              <div>
+                <Label>How should customers earn?</Label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2.5 text-sm text-ink">
+                    <input
+                      type="radio"
+                      name="earningMode"
+                      value="PER_VISIT"
+                      defaultChecked={program.earningMode === "PER_VISIT"}
+                      className="mt-0.5 w-4 h-4 accent-brand-600"
+                    />
+                    <span>
+                      <span className="font-medium">Per visit</span>
+                      <span className="block text-xs text-fade">
+                        Every scan counts as 1, no matter how much the customer buys.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 text-sm text-ink">
+                    <input
+                      type="radio"
+                      name="earningMode"
+                      value="PER_UNIT"
+                      defaultChecked={program.earningMode === "PER_UNIT"}
+                      className="mt-0.5 w-4 h-4 accent-brand-600"
+                    />
+                    <span>
+                      <span className="font-medium">Per item or service</span>
+                      <span className="block text-xs text-fade">
+                        Staff pick a quantity when scanning — 3 coffees in one visit counts as 3.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="purchasesRequired">Purchases needed</Label>
+                  <Label htmlFor="purchasesRequired">
+                    {program.earningMode === "PER_UNIT" ? "Items/services needed" : "Visits needed"}
+                  </Label>
                   <Input
                     id="purchasesRequired"
                     name="purchasesRequired"
