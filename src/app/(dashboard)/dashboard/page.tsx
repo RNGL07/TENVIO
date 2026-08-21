@@ -86,10 +86,10 @@ export default async function OverviewPage() {
         <div className="mb-8 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-fade">Tenvio Insight</p>
           {oneAwayCount > 0 && (
-            <Card className="bg-orange-500/[0.06] border-orange-500/20">
+            <Card className="bg-brand-500/[0.06] border-brand-500/20">
               <CardContent className="p-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-orange-600"><SparkIcon className="w-4 h-4" /></span>
+                  <span className="text-brand-600"><SparkIcon className="w-4 h-4" /></span>
                   <p className="text-sm text-ink">
                     <span className="font-semibold">{oneAwayCount}</span>{" "}
                     {oneAwayCount === 1 ? "customer is" : "customers are"} currently one visit away from earning a
@@ -103,10 +103,10 @@ export default async function OverviewPage() {
             </Card>
           )}
           {rewardsWaiting > 0 && (
-            <Card className="bg-orange-500/[0.06] border-orange-500/20">
+            <Card className="bg-brand-500/[0.06] border-brand-500/20">
               <CardContent className="p-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-orange-600"><SparkIcon className="w-4 h-4" /></span>
+                  <span className="text-brand-600"><SparkIcon className="w-4 h-4" /></span>
                   <p className="text-sm text-ink">
                     <span className="font-semibold">{rewardsWaiting}</span>{" "}
                     {rewardsWaiting === 1 ? "reward is" : "rewards are"} currently waiting to be redeemed.
@@ -128,7 +128,7 @@ export default async function OverviewPage() {
             <CardContent className="p-0 divide-y divide-sand">
               {recentPurchases.map((p) => (
                 <div key={p.id} className="px-4 py-3 text-sm flex items-center gap-2.5">
-                  <div className="w-6 h-6 rounded-full bg-orange-500/15 text-orange-700 font-semibold flex items-center justify-center text-[10px] shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-brand-500/15 text-brand-700 font-semibold flex items-center justify-center text-[10px] shrink-0">
                     {initials(p.customer.firstName, p.customer.phoneNumber)}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -148,7 +148,7 @@ export default async function OverviewPage() {
             <CardContent className="p-0 divide-y divide-sand">
               {recentCustomers.map((c) => (
                 <Link key={c.id} href={`/dashboard/customers/${c.id}`} className="px-4 py-3 text-sm flex items-center gap-2.5 hover:bg-black/[0.015]">
-                  <div className="w-6 h-6 rounded-full bg-orange-500/15 text-orange-700 font-semibold flex items-center justify-center text-[10px] shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-brand-500/15 text-brand-700 font-semibold flex items-center justify-center text-[10px] shrink-0">
                     {initials(c.firstName, c.phoneNumber)}
                   </div>
                   <div className="flex-1 min-w-0">

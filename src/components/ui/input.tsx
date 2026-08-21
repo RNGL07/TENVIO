@@ -6,7 +6,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
     <input
       className={cn(
         "w-full bg-white border border-sand text-ink placeholder-fade/60 rounded-lg px-3.5 py-2.5",
-        "focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/60",
+        "focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/60",
         className
       )}
       {...props}
@@ -19,7 +19,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
     <textarea
       className={cn(
         "w-full bg-white border border-sand text-ink placeholder-fade/60 rounded-lg px-3.5 py-2.5",
-        "focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/60",
+        "focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/60",
         className
       )}
       {...props}

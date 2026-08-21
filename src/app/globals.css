@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 ::selection {
+  /* brand-500 (#f97316) at 25% alpha — keep in sync with tailwind.config.ts theme.extend.colors.brand.500 */
   background: rgba(249, 115, 22, 0.25);
 }
 

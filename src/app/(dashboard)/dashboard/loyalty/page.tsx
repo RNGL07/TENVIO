@@ -39,7 +39,7 @@ export default async function LoyaltyPage() {
             <p className="text-fade text-sm mb-6">
               Get: <span className="text-ink font-semibold">{program.rewardDescription}</span>
             </p>
-            <Link href="/dashboard/settings" className="text-sm text-orange-600 font-medium hover:text-orange-700">
+            <Link href="/dashboard/settings" className="text-sm text-brand-600 font-medium hover:text-brand-700">
               Edit program in Settings →
             </Link>
 

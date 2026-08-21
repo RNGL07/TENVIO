@@ -55,7 +55,7 @@ export default async function JoinPage({
               </div>
             </div>
             <label className="flex items-start gap-2.5 text-xs text-fade leading-relaxed">
-              <input type="checkbox" name="consent" value="on" required className="mt-0.5 accent-orange-600" />
+              <input type="checkbox" name="consent" value="on" required className="mt-0.5 accent-brand-600" />
               <span>
                 I agree to receive loyalty and promotional text messages from {business.name}. Message and
                 data rates may apply. Reply STOP to opt out.

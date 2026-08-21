@@ -24,15 +24,15 @@ export default function SignUpPage({ searchParams }: { searchParams: { error?: s
           </div>
           <ul className="space-y-3 text-sm text-white/85">
             <li className="flex items-center gap-2.5">
-              <span className="text-orange-400"><CheckIcon className="w-4 h-4" /></span>
+              <span className="text-brand-400"><CheckIcon className="w-4 h-4" /></span>
               Customers join with a phone number, no app
             </li>
             <li className="flex items-center gap-2.5">
-              <span className="text-orange-400"><CheckIcon className="w-4 h-4" /></span>
+              <span className="text-brand-400"><CheckIcon className="w-4 h-4" /></span>
               Automatic progress and reward texts
             </li>
             <li className="flex items-center gap-2.5">
-              <span className="text-orange-400"><CheckIcon className="w-4 h-4" /></span>
+              <span className="text-brand-400"><CheckIcon className="w-4 h-4" /></span>
               Simple campaigns you fully control
             </li>
           </ul>
@@ -65,7 +65,7 @@ export default function SignUpPage({ searchParams }: { searchParams: { error?: s
           </form>
           <p className="text-sm text-fade mt-5">
             Already have an account?{" "}
-            <Link href="/login" className="text-orange-600 font-medium hover:text-orange-700">
+            <Link href="/login" className="text-brand-600 font-medium hover:text-brand-700">
               Log in
             </Link>
           </p>

@@ -31,7 +31,7 @@ export default async function SettingsPage({
       </div>
 
       {searchParams.saved && SAVED_LABEL[searchParams.saved] && (
-        <div className="bg-orange-500/10 border border-orange-500/25 text-orange-800 text-sm rounded-lg px-3.5 py-2.5">
+        <div className="bg-brand-500/10 border border-brand-500/25 text-brand-800 text-sm rounded-lg px-3.5 py-2.5">
           {SAVED_LABEL[searchParams.saved]}
         </div>
       )}
@@ -104,7 +104,7 @@ export default async function SettingsPage({
                   type="checkbox"
                   name="welcomeSmsEnabled"
                   defaultChecked={business.welcomeSmsEnabled}
-                  className="w-4 h-4 accent-orange-600"
+                  className="w-4 h-4 accent-brand-600"
                 />
               </label>
               <label className="flex items-center justify-between">
@@ -113,7 +113,7 @@ export default async function SettingsPage({
                   type="checkbox"
                   name="oneAwaySmsEnabled"
                   defaultChecked={business.oneAwaySmsEnabled}
-                  className="w-4 h-4 accent-orange-600"
+                  className="w-4 h-4 accent-brand-600"
                 />
               </label>
               <label className="flex items-center justify-between">
@@ -122,7 +122,7 @@ export default async function SettingsPage({
                   type="checkbox"
                   name="rewardSmsEnabled"
                   defaultChecked={business.rewardSmsEnabled}
-                  className="w-4 h-4 accent-orange-600"
+                  className="w-4 h-4 accent-brand-600"
                 />
               </label>
               <p className="text-xs text-fade">
