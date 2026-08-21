@@ -62,6 +62,15 @@ export function UsersIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="4.5" width="17" height="16" rx="2" />
+      <path d="M3.5 9.5h17M8 3v3M16 3v3" />
+    </svg>
+  );
+}
+
 export function LoyaltyIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
