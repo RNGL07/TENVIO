@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyWebhookSignature } from "@/lib/billing";
+import { verifyWebhookSignature, retrieveStripeSubscription } from "@/lib/billing";
 import { prisma } from "@/lib/db";
 
 // Maps a raw Stripe subscription status + cancel_at_period_end flag to our
@@ -12,8 +12,9 @@ function mapStripeSubscriptionToStatus(
   cancelAtPeriodEnd: boolean
 ): "ACTIVE" | "PAST_DUE" | "CANCELING" | "CANCELED" | "TRIAL" {
   if (stripeStatus === "canceled" || stripeStatus === "incomplete_expired") return "CANCELED";
-  // Stripe-side trials aren't used in V1 (ours are local, pre-checkout —
-  // see auth-actions.ts), but map defensively in case that ever changes.
+  // A real Stripe-side trial — see createCheckoutSession's trial
+  // preservation logic in lib/billing.ts: upgrading mid-trial creates the
+  // subscription in "trialing" status rather than charging immediately.
   if (stripeStatus === "trialing") return "TRIAL";
   if (cancelAtPeriodEnd && (stripeStatus === "active" || stripeStatus === "past_due")) return "CANCELING";
   if (stripeStatus === "past_due" || stripeStatus === "unpaid" || stripeStatus === "incomplete") return "PAST_DUE";
@@ -54,18 +55,32 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       // Fired once when the owner completes Stripe Checkout. This is the
       // ONLY place a Subscription moves from local TRIAL to a real,
-      // Stripe-backed ACTIVE subscription.
+      // Stripe-backed subscription. Status is re-derived from the actual
+      // Stripe subscription object rather than assumed to be ACTIVE,
+      // because an upgrade with remaining local trial time (see
+      // createCheckoutSession) creates it in "trialing" status instead —
+      // charged later, not now — and that distinction matters both for the
+      // status badge and so deriveAccess/UI never claims a card was
+      // charged before it actually was.
       case "checkout.session.completed": {
         const businessId = obj.metadata?.businessId as string | undefined;
         const planId = obj.metadata?.planId as string | undefined;
+        const stripeSubscriptionId = obj.subscription as string | undefined;
         if (businessId) {
+          const stripeSub = stripeSubscriptionId ? await retrieveStripeSubscription(stripeSubscriptionId) : null;
           await prisma.subscription.update({
             where: { businessId },
             data: {
-              status: "ACTIVE",
+              status: stripeSub
+                ? mapStripeSubscriptionToStatus(stripeSub.status, Boolean(stripeSub.cancel_at_period_end))
+                : "ACTIVE",
               stripeCustomerId: obj.customer ?? undefined,
-              stripeSubscriptionId: obj.subscription ?? undefined,
+              stripeSubscriptionId: stripeSubscriptionId ?? undefined,
               planId: planId ?? undefined,
+              cancelAtPeriodEnd: stripeSub ? Boolean(stripeSub.cancel_at_period_end) : undefined,
+              currentPeriodEnd: stripeSub?.current_period_end
+                ? new Date(stripeSub.current_period_end * 1000)
+                : undefined,
             },
           });
         }
@@ -73,7 +88,8 @@ export async function POST(req: NextRequest) {
       }
 
       // Fired on essentially every change to an existing subscription:
-      // payment success/failure (status flips), and cancel-at-period-end
+      // payment success/failure (status flips), a local trial converting
+      // to a real charge once trial_end passes, and cancel-at-period-end
       // being toggled on/off from the Billing Portal or (later) Tenvio's
       // own cancellation flow (Phase I).
       case "customer.subscription.updated": {
