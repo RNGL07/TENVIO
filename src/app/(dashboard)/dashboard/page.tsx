@@ -7,7 +7,7 @@ import { formatRelativeDay, formatDateTime, initials } from "@/lib/utils";
 import { SparkIcon, ArrowRightIcon } from "@/components/icons";
 
 export default async function OverviewPage() {
-  const { user, business } = await requireSession();
+  const { business } = await requireSession();
   const program = await prisma.loyaltyProgram.findUniqueOrThrow({ where: { businessId: business.id } });
 
   const startOfMonth = new Date();
@@ -46,12 +46,15 @@ export default async function OverviewPage() {
     }),
   ]);
 
-  const firstNameGuess = user.email.split("@")[0];
-
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-extrabold text-ink tracking-tight">Good morning, {firstNameGuess}.</h1>
+        {/* No owner/person name is collected anywhere (User model has no
+            `name` field, signup only asks for business name/email/password),
+            so there's nothing real to greet by — a "Good morning, {email
+            local-part}" fallback reads as broken rather than personal. The
+            business name in the subtitle already carries the personalization. */}
+        <h1 className="text-2xl font-extrabold text-ink tracking-tight">Good morning.</h1>
         <p className="text-fade text-sm mt-0.5">Here&apos;s what&apos;s happening at {business.name}.</p>
       </div>
 
