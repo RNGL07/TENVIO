@@ -16,15 +16,6 @@ const STATUS_LABEL: Record<string, string> = {
   COMPED: "Comped",
 };
 
-// Statuses where a real Stripe subscription already exists and can be
-// managed (payment method, invoices, cancellation) in the Billing Portal.
-const MANAGE_STATUSES = new Set(["ACTIVE", "PAST_DUE", "CANCELING"]);
-// Statuses where there's no live Stripe subscription yet, so "start
-// checkout" is the right action instead of "manage" — COMPED and an
-// admin-restricted account are deliberately excluded: neither is resolved
-// by the owner paying, so no button is shown for either.
-const CHECKOUT_STATUSES = new Set(["TRIAL", "CANCELED"]);
-
 function formatDate(d: Date | null): string {
   if (!d) return "—";
   return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -41,14 +32,18 @@ function daysLeft(d: Date | null): number {
 /**
  * Phase C: real "Upgrade Now" / "Manage Billing" buttons, wired to actual
  * Stripe Checkout and Billing Portal sessions (see actions/billing-actions.ts
- * and lib/billing.ts), plus a visible trial countdown and an explicit note
- * that upgrading preserves whatever trial time is left (see
- * createCheckoutSession's trial_end handling). Still deliberately minimal
- * beyond that — no invoice list, no plan-comparison UI. The Billing Portal
- * (reached via "Manage Billing") covers payment method updates, invoice
- * history, and — depending on the account's Portal configuration —
- * cancellation, until Tenvio's own reason-capture cancellation flow ships
- * in Phase I. Richer merchant billing UX beyond that is Phase D's job.
+ * and lib/billing.ts), a visible trial countdown, and trial-preservation
+ * messaging (see createCheckoutSession's trial_end handling in
+ * lib/billing.ts).
+ *
+ * Which button shows is keyed off whether a real Stripe subscription is
+ * attached (stripeSubscriptionId), NOT off `status` alone — a business
+ * that upgraded mid-trial still has status="TRIAL" (correctly: they
+ * haven't been charged yet) but already has a card on file via a
+ * "trialing" Stripe subscription, so showing "Upgrade Now" again would
+ * invite creating a second one. hasStripeSubscription is what
+ * distinguishes "never started checkout" from "mid-trial, already
+ * converted, just not charged yet."
  */
 export default async function BillingPage({
   searchParams,
@@ -66,11 +61,15 @@ export default async function BillingPage({
   const isRestrictedByAdmin = Boolean(subscription?.adminRestrictedAt);
   const isTrial = subscription?.status === "TRIAL";
   const trialDaysLeft = isTrial ? daysLeft(subscription!.trialEndsAt) : 0;
+  const hasStripeSubscription = Boolean(subscription?.stripeSubscriptionId);
 
   const showCheckout =
-    BILLING_LIVE_MODE && !isRestrictedByAdmin && subscription && CHECKOUT_STATUSES.has(subscription.status);
-  const showManage =
-    BILLING_LIVE_MODE && !isRestrictedByAdmin && subscription && MANAGE_STATUSES.has(subscription.status);
+    BILLING_LIVE_MODE &&
+    !isRestrictedByAdmin &&
+    subscription &&
+    !hasStripeSubscription &&
+    (subscription.status === "TRIAL" || subscription.status === "CANCELED");
+  const showManage = BILLING_LIVE_MODE && !isRestrictedByAdmin && hasStripeSubscription;
 
   return (
     <div className="max-w-lg space-y-6">
@@ -88,7 +87,7 @@ export default async function BillingPage({
 
       {searchParams.checkout === "success" && (
         <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-3.5 py-2.5">
-          You&apos;re all set — your subscription is active.
+          You&apos;re all set{isTrial ? " — your card is saved and your trial continues." : " — your subscription is active."}
         </div>
       )}
 
@@ -143,6 +142,13 @@ export default async function BillingPage({
                 {subscription.plan.name} — ${(subscription.plan.amountCents / 100).toFixed(0)}/
                 {subscription.plan.interval === "YEAR" ? "yr" : "mo"}
               </span>
+            </div>
+          )}
+
+          {isTrial && hasStripeSubscription && (
+            <div className="bg-orange-50 border border-orange-200 text-orange-800 text-sm rounded-lg px-3.5 py-2.5">
+              Your card is on file. You won&apos;t be charged until your trial ends on{" "}
+              {formatDate(subscription!.trialEndsAt)}.
             </div>
           )}
 
