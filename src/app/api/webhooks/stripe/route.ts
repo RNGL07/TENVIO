@@ -12,11 +12,20 @@ function mapStripeSubscriptionToStatus(
   cancelAtPeriodEnd: boolean
 ): "ACTIVE" | "PAST_DUE" | "CANCELING" | "CANCELED" | "TRIAL" {
   if (stripeStatus === "canceled" || stripeStatus === "incomplete_expired") return "CANCELED";
-  // A real Stripe-side trial — see createCheckoutSession's trial
-  // preservation logic in lib/billing.ts: upgrading mid-trial creates the
-  // subscription in "trialing" status rather than charging immediately.
+  // Cancellation takes priority over "trialing". A subscription upgraded
+  // mid-trial (see createCheckoutSession's trial preservation in
+  // lib/billing.ts) stays in Stripe's "trialing" status right up until the
+  // trial actually ends — so a merchant who cancels during that window
+  // must still show as CANCELING, not TRIAL, or the Billing page gives no
+  // indication the cancellation took effect. Confirmed via a live test:
+  // canceling a trialing subscription in the Portal sets
+  // cancel_at_period_end=true but leaves status="trialing" untouched, so
+  // this check has to run before the plain "trialing" branch below.
+  if (cancelAtPeriodEnd && (stripeStatus === "active" || stripeStatus === "past_due" || stripeStatus === "trialing")) {
+    return "CANCELING";
+  }
+  // A real Stripe-side trial with no cancellation pending.
   if (stripeStatus === "trialing") return "TRIAL";
-  if (cancelAtPeriodEnd && (stripeStatus === "active" || stripeStatus === "past_due")) return "CANCELING";
   if (stripeStatus === "past_due" || stripeStatus === "unpaid" || stripeStatus === "incomplete") return "PAST_DUE";
   return "ACTIVE";
 }
