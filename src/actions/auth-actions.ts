@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword, setSessionCookie, clearSessionCookie } from "@/lib/auth";
 import { signUpSchema, logInSchema } from "@/lib/validation";
-import { createCheckoutSession } from "@/lib/billing";
 import { getActivePlan } from "@/lib/plans";
 import { slugify } from "@/lib/utils";
 
@@ -53,20 +52,15 @@ export async function signUpAction(formData: FormData) {
 
   setSessionCookie({ userId: user.id, businessId: business.id, role: "OWNER" });
 
-  // BILLING_LIVE_MODE is false until Phase C sets STRIPE_SECRET_KEY/
-  // STRIPE_PRICE_ID, so this always returns null today and every signup
-  // falls through to the local trial below — no Stripe Customer/Subscription
-  // object is created at signup time in Phase B.
-  const checkoutUrl = await createCheckoutSession(business.id, email);
-  if (checkoutUrl) {
-    redirect(checkoutUrl);
-  }
-
-  // Phase B: local, no-card trial. trialEndsAt (not the stored status) is
-  // what lib/access.ts derives FULL/RESTRICTED from once it passes — see
-  // that file's comment for why status itself doesn't flip on expiry.
-  // Trial length comes from the active Plan (Admin-configurable, Phase G)
-  // rather than a hardcoded constant — see lib/plans.ts.
+  // Phase C: every signup ALWAYS gets a local, no-card trial — there is no
+  // "skip straight to Stripe Checkout" path at signup time, live billing or
+  // not. An earlier version of this function redirected to Checkout
+  // immediately when BILLING_LIVE_MODE was true, which would have forced
+  // a card wall on every new signup and defeated the entire point of the
+  // Phase B trial design; that branch has been removed. Checkout is only
+  // ever started explicitly, later, from the Billing page (see
+  // actions/billing-actions.ts startCheckoutAction) when the owner
+  // chooses to upgrade.
   const activePlan = await getActivePlan();
   const trialDays = activePlan?.trialDays ?? DEFAULT_TRIAL_DAYS;
   const trialStartedAt = new Date();
@@ -75,6 +69,11 @@ export async function signUpAction(formData: FormData) {
     create: {
       businessId: business.id,
       status: "TRIAL",
+      // Tying the trial to the Plan it was granted under (even though no
+      // Stripe object exists yet) lets the Billing page show what the
+      // owner will actually be charged once the trial ends, instead of
+      // only showing pricing after a real Stripe subscription exists.
+      planId: activePlan?.id,
       trialStartedAt,
       trialEndsAt: new Date(trialStartedAt.getTime() + trialDays * 24 * 60 * 60 * 1000),
       trialSource: "SELF_SERVICE",
