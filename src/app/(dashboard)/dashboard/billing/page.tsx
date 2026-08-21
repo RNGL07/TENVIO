@@ -17,7 +17,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 // Statuses where a real Stripe subscription already exists and can be
-// managed (payment method, invoices) in the Billing Portal.
+// managed (payment method, invoices, cancellation) in the Billing Portal.
 const MANAGE_STATUSES = new Set(["ACTIVE", "PAST_DUE", "CANCELING"]);
 // Statuses where there's no live Stripe subscription yet, so "start
 // checkout" is the right action instead of "manage" — COMPED and an
@@ -30,13 +30,25 @@ function formatDate(d: Date | null): string {
   return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
+/** Whole days remaining until `d`, floor-clamped to 0 — never negative even
+ * if the trial technically just lapsed and this renders before the access
+ * check catches up. */
+function daysLeft(d: Date | null): number {
+  if (!d) return 0;
+  return Math.max(0, Math.ceil((d.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
 /**
  * Phase C: real "Upgrade Now" / "Manage Billing" buttons, wired to actual
  * Stripe Checkout and Billing Portal sessions (see actions/billing-actions.ts
- * and lib/billing.ts). Still deliberately minimal beyond that — no invoice
- * list, no plan-comparison UI, no cancellation button (cancellation is
- * Tenvio's own flow, Phase I, not something this page or the Stripe Portal
- * exposes). Richer merchant billing UX is Phase D's job.
+ * and lib/billing.ts), plus a visible trial countdown and an explicit note
+ * that upgrading preserves whatever trial time is left (see
+ * createCheckoutSession's trial_end handling). Still deliberately minimal
+ * beyond that — no invoice list, no plan-comparison UI. The Billing Portal
+ * (reached via "Manage Billing") covers payment method updates, invoice
+ * history, and — depending on the account's Portal configuration —
+ * cancellation, until Tenvio's own reason-capture cancellation flow ships
+ * in Phase I. Richer merchant billing UX beyond that is Phase D's job.
  */
 export default async function BillingPage({
   searchParams,
@@ -52,6 +64,8 @@ export default async function BillingPage({
   const access = subscription ? deriveAccess(subscription) : "RESTRICTED";
   const statusLabel = subscription ? STATUS_LABEL[subscription.status] ?? subscription.status : "No subscription";
   const isRestrictedByAdmin = Boolean(subscription?.adminRestrictedAt);
+  const isTrial = subscription?.status === "TRIAL";
+  const trialDaysLeft = isTrial ? daysLeft(subscription!.trialEndsAt) : 0;
 
   const showCheckout =
     BILLING_LIVE_MODE && !isRestrictedByAdmin && subscription && CHECKOUT_STATUSES.has(subscription.status);
@@ -91,11 +105,19 @@ export default async function BillingPage({
             <Badge tone={access === "FULL" ? "green" : "red"}>{statusLabel}</Badge>
           </div>
 
-          {subscription?.status === "TRIAL" && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-fade">Trial ends</span>
-              <span className="text-ink font-medium">{formatDate(subscription.trialEndsAt)}</span>
-            </div>
+          {isTrial && (
+            <>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-fade">Trial ends</span>
+                <span className="text-ink font-medium">{formatDate(subscription!.trialEndsAt)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-fade">Days left</span>
+                <span className="text-ink font-medium">
+                  {trialDaysLeft} {trialDaysLeft === 1 ? "day" : "days"}
+                </span>
+              </div>
+            </>
           )}
 
           {subscription?.status === "CANCELING" && (
@@ -125,11 +147,19 @@ export default async function BillingPage({
           )}
 
           {showCheckout && (
-            <form action={startCheckoutAction} className="pt-2">
-              <Button type="submit" className="w-full">
-                Upgrade Now
-              </Button>
-            </form>
+            <div className="pt-2 space-y-2">
+              <form action={startCheckoutAction}>
+                <Button type="submit" className="w-full">
+                  Upgrade Now
+                </Button>
+              </form>
+              {isTrial && trialDaysLeft > 0 && (
+                <p className="text-xs text-fade text-center">
+                  You won&apos;t be charged until your trial ends on {formatDate(subscription!.trialEndsAt)} — you
+                  keep your remaining {trialDaysLeft} {trialDaysLeft === 1 ? "day" : "days"} free.
+                </p>
+              )}
+            </div>
           )}
 
           {showManage && (
