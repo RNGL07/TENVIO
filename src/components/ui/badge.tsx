@@ -4,7 +4,7 @@ import type { HTMLAttributes } from "react";
 type Tone = "orange" | "green" | "red" | "neutral";
 
 const toneClasses: Record<Tone, string> = {
-  orange: "bg-orange-500/15 text-orange-700",
+  orange: "bg-brand-500/15 text-brand-700",
   green: "bg-emerald-500/15 text-emerald-700",
   red: "bg-red-500/10 text-red-700",
   neutral: "bg-black/5 text-fade",
@@ -23,7 +23,7 @@ export function ProgressBar({ value, max, className }: { value: number; max: num
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
   return (
     <div className={cn("h-1.5 bg-sand rounded-full overflow-hidden", className)}>
-      <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+      <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
     </div>
   );
 }

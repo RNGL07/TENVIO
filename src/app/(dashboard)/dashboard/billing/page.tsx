@@ -146,7 +146,7 @@ export default async function BillingPage({
           )}
 
           {isTrial && hasStripeSubscription && (
-            <div className="bg-orange-50 border border-orange-200 text-orange-800 text-sm rounded-lg px-3.5 py-2.5">
+            <div className="bg-brand-50 border border-brand-200 text-brand-800 text-sm rounded-lg px-3.5 py-2.5">
               Your card is on file. You won&apos;t be charged until your trial ends on{" "}
               {formatDate(subscription!.trialEndsAt)}.
             </div>

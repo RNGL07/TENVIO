@@ -65,7 +65,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
                 <tr key={c.id} className="hover:bg-black/[0.015]">
                   <td className="px-4 py-3.5">
                     <Link href={`/dashboard/customers/${c.id}`} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-orange-500/15 text-orange-700 font-semibold flex items-center justify-center text-xs shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-brand-500/15 text-brand-700 font-semibold flex items-center justify-center text-xs shrink-0">
                         {initials(c.firstName, c.phoneNumber)}
                       </div>
                       <div>

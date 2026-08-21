@@ -121,10 +121,10 @@ export function Sidebar({ businessName, email }: { businessName: string; email: 
                 href={href}
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-2.5 md:py-2 rounded-lg text-sm font-medium transition-colors",
-                  active ? "bg-orange-500/15 text-ink" : "text-fade hover:text-ink hover:bg-black/[0.04]"
+                  active ? "bg-brand-500/15 text-ink" : "text-fade hover:text-ink hover:bg-black/[0.04]"
                 )}
               >
-                <Icon className={cn("w-4 h-4", active ? "text-orange-600" : "")} />
+                <Icon className={cn("w-4 h-4", active ? "text-brand-600" : "")} />
                 {label}
               </Link>
             );
@@ -135,7 +135,7 @@ export function Sidebar({ businessName, email }: { businessName: string; email: 
               href="/dashboard/settings"
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2.5 md:py-2 rounded-lg text-sm font-medium transition-colors",
-                pathname.startsWith("/dashboard/settings") ? "bg-orange-500/15 text-ink" : "text-fade hover:text-ink hover:bg-black/[0.04]"
+                pathname.startsWith("/dashboard/settings") ? "bg-brand-500/15 text-ink" : "text-fade hover:text-ink hover:bg-black/[0.04]"
               )}
             >
               <SettingsIcon className="w-4 h-4" /> Settings

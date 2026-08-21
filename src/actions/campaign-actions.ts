@@ -7,6 +7,7 @@ import { getBusinessAccess } from "@/lib/access";
 import { campaignSchema } from "@/lib/validation";
 import { sendSms } from "@/lib/sms";
 import { generateOfferToken, generateShortCode, offerExpiryDate } from "@/lib/redemption";
+import { composeCampaignMessage } from "@/lib/campaign-message";
 
 /**
  * Creates and immediately sends a campaign to every opted-in customer.
@@ -78,7 +79,7 @@ export async function createAndSendCampaignAction(formData: FormData) {
       offerToken = offer.token;
     }
 
-    const body = offerToken ? `${messageBody} Redeem: ${appUrl}/r/${offerToken}` : messageBody;
+    const body = composeCampaignMessage(messageBody, appUrl, offerToken);
     await sendSms({
       businessId: session.businessId,
       customerId: customer.id,

@@ -20,7 +20,7 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-white/50">
-            <SparkIcon className="w-3.5 h-3.5 text-orange-400" /> Built for local businesses
+            <SparkIcon className="w-3.5 h-3.5 text-brand-400" /> Built for local businesses
           </div>
         </div>
 
@@ -47,7 +47,7 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
           </form>
           <p className="text-sm text-fade mt-5">
             New here?{" "}
-            <Link href="/signup" className="text-orange-600 font-medium hover:text-orange-700">
+            <Link href="/signup" className="text-brand-600 font-medium hover:text-brand-700">
               Create an account
             </Link>
           </p>

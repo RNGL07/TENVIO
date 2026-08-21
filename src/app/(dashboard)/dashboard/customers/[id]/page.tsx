@@ -68,7 +68,7 @@ export default async function CustomerProfilePage({ params }: { params: { id: st
     <div>
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-orange-500/15 text-orange-700 font-bold flex items-center justify-center text-sm shrink-0">
+          <div className="w-10 h-10 rounded-full bg-brand-500/15 text-brand-700 font-bold flex items-center justify-center text-sm shrink-0">
             {initials(customer.firstName, customer.phoneNumber)}
           </div>
           <div>

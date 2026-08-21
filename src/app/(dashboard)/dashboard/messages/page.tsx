@@ -47,7 +47,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: { t
             className={cn(
               "text-xs font-medium px-3 py-1.5 rounded-lg border",
               (searchParams.type ? searchParams.type === f.value : !f.value)
-                ? "bg-orange-500/15 text-ink border-orange-500/30"
+                ? "bg-brand-500/15 text-ink border-brand-500/30"
                 : "border-sand text-fade hover:text-ink"
             )}
           >

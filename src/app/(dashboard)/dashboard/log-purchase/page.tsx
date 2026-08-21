@@ -49,8 +49,8 @@ export default async function LogPurchasePage({
         </div>
       )}
       {searchParams.result && searchParams.result !== "reward" && customer && (
-        <div className="flex items-start gap-3 bg-orange-500/10 border border-orange-500/25 text-orange-800 rounded-xl p-4 mb-5">
-          <span className="text-orange-600 mt-0.5">
+        <div className="flex items-start gap-3 bg-brand-500/10 border border-brand-500/25 text-brand-800 rounded-xl p-4 mb-5">
+          <span className="text-brand-600 mt-0.5">
             <CheckCircleIcon className="w-4 h-4" />
           </span>
           <span className="text-sm">
@@ -95,7 +95,7 @@ export default async function LogPurchasePage({
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-full bg-orange-500/15 text-orange-700 font-bold flex items-center justify-center text-sm shrink-0">
+              <div className="w-10 h-10 rounded-full bg-brand-500/15 text-brand-700 font-bold flex items-center justify-center text-sm shrink-0">
                 {initials(customer.firstName, customer.phoneNumber)}
               </div>
               <div>

@@ -18,6 +18,7 @@ export function LogoMark(props: SVGProps<SVGSVGElement>) {
     <svg width={22} height={22} viewBox="0 0 48 48" {...props}>
       <defs>
         <linearGradient id="tenvioGrad" x1="0" y1="0" x2="0" y2="48" gradientUnits="userSpaceOnUse">
+          {/* brand-400 -> brand-600 — keep in sync with tailwind.config.ts theme.extend.colors.brand */}
           <stop offset="0%" stopColor="#fb923c" />
           <stop offset="100%" stopColor="#ea580c" />
         </linearGradient>
