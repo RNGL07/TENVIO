@@ -10,7 +10,7 @@ export default async function RewardPage({ params }: { params: { token: string }
     where: { token: params.token },
     include: { redemption: true, business: true },
   });
-  if (!offer) notFound();
+  if (!offer || offer.voidedAt) notFound();
 
   const expired = offer.expiresAt ? offer.expiresAt < new Date() : false;
   const redeemed = Boolean(offer.redemption);

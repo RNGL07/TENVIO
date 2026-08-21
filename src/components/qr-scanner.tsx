@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
  * On a successful scan this pulls the card token out of the decoded URL and
  * calls onToken(token) exactly once, then stops the camera — the caller
  * (LogPurchaseScanPanel) is responsible for submitting that token through
- * logPurchaseByTokenAction, which is the only thing that actually logs a
+ * createPurchaseByTokenAction, which is the only thing that actually logs a
  * purchase (see the comment on that action). This component never talks to
  * the database itself.
  */

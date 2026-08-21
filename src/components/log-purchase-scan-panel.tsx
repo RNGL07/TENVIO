@@ -1,64 +1,239 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QrScanner } from "./qr-scanner";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
+import { CheckCircleIcon } from "@/components/icons";
+import {
+  createPurchaseByTokenAction,
+  finalizePurchaseAction,
+  resolveCustomerByTokenAction,
+  undoPurchaseAction,
+  type CreatePurchaseResult,
+} from "@/actions/purchase-actions";
+import { FINALIZE_WINDOW_MS, type LoyaltyEarningMode } from "@/lib/loyalty";
+
+type SuccessResult = Extract<CreatePurchaseResult, { ok: true }>;
+
+type PanelState =
+  | { phase: "idle" }
+  | { phase: "scanning" }
+  | { phase: "resolving" }
+  | { phase: "choosing_quantity"; token: string; customerId: string; customerName: string }
+  | { phase: "creating" }
+  | { phase: "cooldown"; token: string; quantity: number; secondsAgo?: number }
+  | { phase: "success"; result: SuccessResult }
+  | { phase: "undone" }
+  | { phase: "not_found" };
+
+const QUANTITY_OPTIONS = [1, 2, 3];
 
 /**
- * "Scan Card" entry point on /dashboard/log-purchase — an alternative to
- * typing a phone number. Camera turns on only after the staff member taps
- * "Scan Customer Card" (never auto-starts), and a successful scan submits
- * `action` (logPurchaseByTokenAction) as a real form POST, so it goes through
- * the exact same authenticated-session server action as every other write in
- * this app — this component only ever reads a QR code, it never touches the
- * database itself.
+ * "Scan Card" — Scan Mode for /dashboard/log-purchase. Stays on this one
+ * screen for the whole scan -> identify -> (quantity, PER_UNIT only) -> log
+ * -> success -> Undo-or-finalize -> ready-for-next-customer loop, with no
+ * route change and (after the first "Start Scanning" tap) no further taps
+ * required for the common PER_VISIT case.
+ *
+ * The actual write (createPurchaseByTokenAction) happens immediately on
+ * scan/quantity-pick — SMS is what's deferred, via a short client-held
+ * countdown before finalizePurchaseAction fires. See the comment on
+ * createPurchaseCore in src/actions/purchase-actions.ts for why that split
+ * needed no new backend infrastructure.
  */
-export function LogPurchaseScanPanel({
-  action,
-}: {
-  action: (formData: FormData) => void | Promise<void>;
-}) {
-  const formRef = useRef<HTMLFormElement>(null);
-  const [scanning, setScanning] = useState(false);
-  const [submittingToken, setSubmittingToken] = useState<string | null>(null);
+export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarningMode }) {
+  const [state, setState] = useState<PanelState>({ phase: "idle" });
+  const finalizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function handleToken(token: string) {
-    setSubmittingToken(token);
-    setScanning(false);
-    // Let the hidden input pick up the new value before the form submits.
-    requestAnimationFrame(() => formRef.current?.requestSubmit());
+  useEffect(() => {
+    return () => {
+      if (finalizeTimer.current) clearTimeout(finalizeTimer.current);
+    };
+  }, []);
+
+  function clearFinalizeTimer() {
+    if (finalizeTimer.current) {
+      clearTimeout(finalizeTimer.current);
+      finalizeTimer.current = null;
+    }
   }
+
+  async function submitPurchase(token: string, quantity: number, overrideCooldown = false) {
+    setState({ phase: "creating" });
+    const idempotencyKey = crypto.randomUUID();
+    const result = await createPurchaseByTokenAction(token, quantity, idempotencyKey, overrideCooldown);
+
+    if (!result.ok) {
+      if (result.reason === "cooldown") {
+        setState({ phase: "cooldown", token, quantity, secondsAgo: result.secondsAgo });
+        return;
+      }
+      setState({ phase: "not_found" });
+      return;
+    }
+
+    setState({ phase: "success", result });
+    finalizeTimer.current = setTimeout(async () => {
+      await finalizePurchaseAction(result.purchaseId);
+      setState({ phase: "idle" });
+    }, FINALIZE_WINDOW_MS);
+  }
+
+  async function handleToken(token: string) {
+    if (earningMode === "PER_UNIT") {
+      setState({ phase: "resolving" });
+      const resolved = await resolveCustomerByTokenAction(token);
+      if (!resolved.ok) {
+        setState({ phase: "not_found" });
+        return;
+      }
+      setState({ phase: "choosing_quantity", token, customerId: resolved.customerId, customerName: resolved.customerName });
+      return;
+    }
+    // PER_VISIT: nothing to decide, log immediately — this is the fast path.
+    await submitPurchase(token, 1);
+  }
+
+  async function handleUndo(purchaseId: string) {
+    clearFinalizeTimer();
+    await undoPurchaseAction(purchaseId);
+    setState({ phase: "undone" });
+    setTimeout(() => setState({ phase: "idle" }), 1500);
+  }
+
+  /** Lets staff skip the rest of the countdown and move to the next
+   * customer right away — finalizes (sends the SMS) immediately instead of
+   * waiting out FINALIZE_WINDOW_MS. Undo is still available up until this
+   * is tapped. */
+  async function handleDone(purchaseId: string) {
+    clearFinalizeTimer();
+    await finalizePurchaseAction(purchaseId);
+    setState({ phase: "idle" });
+  }
+
+  const scanning = state.phase === "scanning";
+  const busy = state.phase === "resolving" || state.phase === "creating";
 
   return (
     <Card className="mb-6">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-1">
           <p className="font-semibold text-ink text-sm">Scan customer card</p>
-          {!scanning && !submittingToken && (
-            <Button type="button" variant="secondary" size="sm" onClick={() => setScanning(true)}>
+          {state.phase === "idle" && (
+            <Button type="button" variant="secondary" size="sm" onClick={() => setState({ phase: "scanning" })}>
               Start Scanning
             </Button>
           )}
         </div>
-        <p className="text-xs text-fade mb-3">
-          Fastest way to log a visit — no typing. Ask the customer to pull up their card, then scan it.
-        </p>
+        {state.phase === "idle" && (
+          <p className="text-xs text-fade mb-3">
+            Fastest way to log a visit — no typing. Ask the customer to pull up their card, then scan it.
+          </p>
+        )}
 
         {scanning && (
           <div>
             <QrScanner onToken={handleToken} />
-            <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => setScanning(false)}>
+            <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => setState({ phase: "idle" })}>
               Cancel
             </Button>
           </div>
         )}
 
-        {submittingToken && <p className="text-sm text-fade">Card recognized — logging purchase…</p>}
+        {busy && <p className="text-sm text-fade">{state.phase === "resolving" ? "Looking up card…" : "Logging…"}</p>}
 
-        <form ref={formRef} action={action}>
-          <input type="hidden" name="token" value={submittingToken ?? ""} />
-        </form>
+        {state.phase === "choosing_quantity" && (
+          <div>
+            <p className="text-sm text-ink font-medium mb-2">✓ {state.customerName} identified</p>
+            <p className="text-xs text-fade mb-2">How many qualify?</p>
+            <div className="flex gap-2">
+              {QUANTITY_OPTIONS.map((q) => (
+                <Button key={q} type="button" variant="secondary" size="sm" onClick={() => submitPurchase(state.token, q)}>
+                  {q}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const custom = window.prompt("How many?");
+                  const n = Number(custom);
+                  if (Number.isFinite(n) && n >= 1) submitPurchase(state.token, Math.floor(n));
+                }}
+              >
+                More
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {state.phase === "cooldown" && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-sm text-ink mb-2">
+              This customer was already logged {state.secondsAgo ?? "a few"}s ago — log it anyway?
+            </p>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" onClick={() => submitPurchase(state.token, state.quantity, true)}>
+                Log anyway
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setState({ phase: "idle" })}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {state.phase === "not_found" && (
+          <div>
+            <p className="text-red-700 text-sm mb-2">
+              That card isn&apos;t recognized here — it may be from a different business. Try the phone number below instead.
+            </p>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setState({ phase: "idle" })}>
+              Dismiss
+            </Button>
+          </div>
+        )}
+
+        {state.phase === "success" && (
+          <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl p-4">
+            <span className="text-emerald-600 mt-0.5">
+              <CheckCircleIcon className="w-5 h-5" />
+            </span>
+            <div className="flex-1">
+              <div className="font-extrabold text-sm">
+                {state.result.rewardEarned
+                  ? `🎉 ${state.result.customerName} just earned ${state.result.rewardDescription.toLowerCase()}!`
+                  : `✓ Logged for ${state.result.customerName}`}
+              </div>
+              {!state.result.rewardEarned && (
+                <div className="text-xs mt-0.5">
+                  {state.result.newCount} / {state.result.threshold} toward reward
+                  {state.result.oneAway && " — one away!"}
+                </div>
+              )}
+              <div className="flex items-center gap-3 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleUndo(state.result.purchaseId)}
+                  className="text-xs font-semibold underline"
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDone(state.result.purchaseId)}
+                  className="text-xs font-semibold underline"
+                >
+                  Next customer →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {state.phase === "undone" && <p className="text-sm text-fade">Undone — ready for next scan.</p>}
       </CardContent>
     </Card>
   );

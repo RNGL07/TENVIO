@@ -52,6 +52,9 @@ export const settingsBusinessSchema = z.object({
 export const settingsLoyaltySchema = z.object({
   purchasesRequired: z.coerce.number().int().min(1).max(100),
   rewardDescription: z.string().trim().min(2).max(120),
+  // PER_SPEND deliberately excluded — no UI/logic supports it yet, see the
+  // LoyaltyEarningMode comment in schema.prisma.
+  earningMode: z.enum(["PER_VISIT", "PER_UNIT"]),
 });
 
 export const settingsMessagingSchema = z.object({

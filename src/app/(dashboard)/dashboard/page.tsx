@@ -26,13 +26,13 @@ export default async function OverviewPage() {
     recentMessages,
   ] = await Promise.all([
     prisma.customer.count({ where: { businessId: business.id } }),
-    prisma.purchase.count({ where: { businessId: business.id, createdAt: { gte: startOfMonth } } }),
+    prisma.purchase.count({ where: { businessId: business.id, createdAt: { gte: startOfMonth }, voidedAt: null } }),
     prisma.offerRedemption.count({ where: { offer: { businessId: business.id, source: "LOYALTY_REWARD" } } }),
     prisma.offerRedemption.count({ where: { offer: { businessId: business.id, source: "CAMPAIGN_PROMO" } } }),
     prisma.customer.count({ where: { businessId: business.id, loyaltyCount: program.purchasesRequired - 1 } }),
-    prisma.offer.count({ where: { businessId: business.id, source: "LOYALTY_REWARD", redemption: null } }),
+    prisma.offer.count({ where: { businessId: business.id, source: "LOYALTY_REWARD", redemption: null, voidedAt: null } }),
     prisma.purchase.findMany({
-      where: { businessId: business.id },
+      where: { businessId: business.id, voidedAt: null },
       include: { customer: true },
       orderBy: { createdAt: "desc" },
       take: 5,

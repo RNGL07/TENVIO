@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { findOrCreateCustomerAction } from "@/actions/customer-actions";
-import { logPurchaseAction, logPurchaseByTokenAction } from "@/actions/purchase-actions";
+import { logPurchaseAction } from "@/actions/purchase-actions";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,7 +62,7 @@ export default async function LogPurchasePage({
         </div>
       )}
 
-      <LogPurchaseScanPanel action={logPurchaseByTokenAction} />
+      <LogPurchaseScanPanel earningMode={program.earningMode} />
 
       <Card className="mb-6">
         <CardContent className="p-6">
@@ -109,8 +109,14 @@ export default async function LogPurchasePage({
               {customer.loyaltyCount} / {program.purchasesRequired} {program.purchasesRequired === 1 ? "purchase" : "purchases"}
             </p>
 
-            <form action={logPurchaseAction}>
+            <form action={logPurchaseAction} className="space-y-3">
               <input type="hidden" name="customerId" value={customer.id} />
+              {program.earningMode === "PER_UNIT" && (
+                <div>
+                  <Label htmlFor="quantity">Quantity</Label>
+                  <Input id="quantity" name="quantity" type="number" min={1} max={50} defaultValue={1} required />
+                </div>
+              )}
               <Button type="submit" className="w-full">
                 Add Purchase
               </Button>

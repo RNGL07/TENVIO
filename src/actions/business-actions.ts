@@ -59,13 +59,18 @@ export async function updateLoyaltySettingsAction(formData: FormData) {
   const parsed = settingsLoyaltySchema.safeParse({
     purchasesRequired: formData.get("purchasesRequired"),
     rewardDescription: formData.get("rewardDescription"),
+    earningMode: formData.get("earningMode"),
   });
   if (!parsed.success) {
     redirect(`/dashboard/settings?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Check your details.")}`);
   }
   await prisma.loyaltyProgram.update({
     where: { businessId },
-    data: { purchasesRequired: parsed.data.purchasesRequired, rewardDescription: parsed.data.rewardDescription },
+    data: {
+      purchasesRequired: parsed.data.purchasesRequired,
+      rewardDescription: parsed.data.rewardDescription,
+      earningMode: parsed.data.earningMode,
+    },
   });
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/loyalty");
