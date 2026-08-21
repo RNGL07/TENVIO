@@ -65,6 +65,16 @@ async function getOrCreateStripeCustomer(businessId: string, businessEmail: stri
  * NOT called during signup — every signup gets a local no-card trial first
  * (see auth-actions.ts). This only runs when the owner explicitly chooses
  * to upgrade from the Billing page (see actions/billing-actions.ts).
+ *
+ * Trial preservation: if the business is still within its local trial
+ * window when it upgrades, the created Stripe subscription starts in
+ * Stripe's own "trialing" state via subscription_data.trial_end, set to
+ * the SAME trialEndsAt already shown on the Billing page — the card is
+ * saved but not charged until that date. An owner who upgrades on day 2 of
+ * a 14-day trial keeps the other 12 days free rather than losing them;
+ * someone whose trial already lapsed (or who's resubscribing after a
+ * cancellation) gets charged immediately since there's no time left to
+ * preserve.
  */
 export async function createCheckoutSession(businessId: string, businessEmail: string): Promise<string | null> {
   const stripe = await getStripeClient();
@@ -81,6 +91,11 @@ export async function createCheckoutSession(businessId: string, businessEmail: s
   const customerId = await getOrCreateStripeCustomer(businessId, businessEmail);
   if (!customerId) return null;
 
+  const existingSubscription = await prisma.subscription.findUnique({ where: { businessId } });
+  const trialEndsAt =
+    existingSubscription?.status === "TRIAL" ? existingSubscription.trialEndsAt : null;
+  const hasTrialTimeLeft = Boolean(trialEndsAt && trialEndsAt.getTime() > Date.now());
+
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
@@ -88,7 +103,10 @@ export async function createCheckoutSession(businessId: string, businessEmail: s
     success_url: `${APP_URL}/dashboard/billing?checkout=success`,
     cancel_url: `${APP_URL}/dashboard/billing?checkout=cancelled`,
     metadata: { businessId, planId: plan.id },
-    subscription_data: { metadata: { businessId, planId: plan.id } },
+    subscription_data: {
+      metadata: { businessId, planId: plan.id },
+      ...(hasTrialTimeLeft ? { trial_end: Math.floor(trialEndsAt!.getTime() / 1000) } : {}),
+    },
   });
 
   return session.url;
@@ -97,12 +115,10 @@ export async function createCheckoutSession(businessId: string, businessEmail: s
 /**
  * Creates a Stripe Billing Portal session (update payment method, view
  * invoices) for a business that already has a Stripe customer. Cancellation
- * is intentionally disabled in the Portal's configuration (set once in the
- * Stripe Dashboard under Settings -> Billing -> Customer portal, not
- * per-session) — cancellation is Tenvio's own flow, not Stripe's, per the
- * Phase I plan (reason capture, impact summary, undo before the effective
- * date, no dark patterns). Returns null if billing isn't live or the
- * business has no Stripe customer yet.
+ * being available in the Portal is controlled entirely by the account's
+ * Portal configuration in the Stripe Dashboard (Settings -> Billing ->
+ * Customer portal), not by anything here. Returns null if billing isn't
+ * live or the business has no Stripe customer yet.
  */
 export async function createBillingPortalSession(businessId: string): Promise<string | null> {
   const stripe = await getStripeClient();
@@ -117,6 +133,17 @@ export async function createBillingPortalSession(businessId: string): Promise<st
   });
 
   return session.url;
+}
+
+/** Fetches a subscription directly from Stripe by id. Used by the webhook
+ * handler's checkout.session.completed case to derive the TRUE initial
+ * status (which may be "trialing", not "active" — see the trial
+ * preservation note on createCheckoutSession above) instead of assuming
+ * every completed checkout means an immediately-active subscription. */
+export async function retrieveStripeSubscription(stripeSubscriptionId: string) {
+  const stripe = await getStripeClient();
+  if (!stripe) return null;
+  return stripe.subscriptions.retrieve(stripeSubscriptionId);
 }
 
 export async function verifyWebhookSignature(payload: string, signature: string) {
