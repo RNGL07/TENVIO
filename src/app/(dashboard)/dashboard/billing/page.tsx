@@ -1,8 +1,11 @@
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deriveAccess } from "@/lib/access";
+import { BILLING_LIVE_MODE } from "@/lib/billing";
+import { startCheckoutAction, manageBillingAction } from "@/actions/billing-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const STATUS_LABEL: Record<string, string> = {
   TRIAL: "Free trial",
@@ -13,19 +16,33 @@ const STATUS_LABEL: Record<string, string> = {
   COMPED: "Comped",
 };
 
+// Statuses where a real Stripe subscription already exists and can be
+// managed (payment method, invoices) in the Billing Portal.
+const MANAGE_STATUSES = new Set(["ACTIVE", "PAST_DUE", "CANCELING"]);
+// Statuses where there's no live Stripe subscription yet, so "start
+// checkout" is the right action instead of "manage" — COMPED and an
+// admin-restricted account are deliberately excluded: neither is resolved
+// by the owner paying, so no button is shown for either.
+const CHECKOUT_STATUSES = new Set(["TRIAL", "CANCELED"]);
+
 function formatDate(d: Date | null): string {
   if (!d) return "—";
   return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
 /**
- * Read-only for Phase B on purpose — no upgrade/checkout button yet. Real
- * Stripe Checkout + customer portal wiring is Phase C's job; this page's
- * only responsibility right now is letting a merchant see their own
- * status/trial countdown, and giving RESTRICTED merchants somewhere to land
- * (see the six guarded server actions, all of which redirect here).
+ * Phase C: real "Upgrade Now" / "Manage Billing" buttons, wired to actual
+ * Stripe Checkout and Billing Portal sessions (see actions/billing-actions.ts
+ * and lib/billing.ts). Still deliberately minimal beyond that — no invoice
+ * list, no plan-comparison UI, no cancellation button (cancellation is
+ * Tenvio's own flow, Phase I, not something this page or the Stripe Portal
+ * exposes). Richer merchant billing UX is Phase D's job.
  */
-export default async function BillingPage() {
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: { error?: string; checkout?: string };
+}) {
   const { business } = await requireSession();
   const subscription = await prisma.subscription.findUnique({
     where: { businessId: business.id },
@@ -34,6 +51,12 @@ export default async function BillingPage() {
 
   const access = subscription ? deriveAccess(subscription) : "RESTRICTED";
   const statusLabel = subscription ? STATUS_LABEL[subscription.status] ?? subscription.status : "No subscription";
+  const isRestrictedByAdmin = Boolean(subscription?.adminRestrictedAt);
+
+  const showCheckout =
+    BILLING_LIVE_MODE && !isRestrictedByAdmin && subscription && CHECKOUT_STATUSES.has(subscription.status);
+  const showManage =
+    BILLING_LIVE_MODE && !isRestrictedByAdmin && subscription && MANAGE_STATUSES.has(subscription.status);
 
   return (
     <div className="max-w-lg space-y-6">
@@ -49,6 +72,18 @@ export default async function BillingPage() {
         </div>
       )}
 
+      {searchParams.checkout === "success" && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-3.5 py-2.5">
+          You&apos;re all set — your subscription is active.
+        </div>
+      )}
+
+      {searchParams.error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3.5 py-2.5">
+          {searchParams.error}
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -60,6 +95,13 @@ export default async function BillingPage() {
             <div className="flex items-center justify-between text-sm">
               <span className="text-fade">Trial ends</span>
               <span className="text-ink font-medium">{formatDate(subscription.trialEndsAt)}</span>
+            </div>
+          )}
+
+          {subscription?.status === "CANCELING" && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-fade">Access ends</span>
+              <span className="text-ink font-medium">{formatDate(subscription.currentPeriodEnd)}</span>
             </div>
           )}
 
@@ -81,10 +123,28 @@ export default async function BillingPage() {
               </span>
             </div>
           )}
+
+          {showCheckout && (
+            <form action={startCheckoutAction} className="pt-2">
+              <Button type="submit" className="w-full">
+                Upgrade Now
+              </Button>
+            </form>
+          )}
+
+          {showManage && (
+            <form action={manageBillingAction} className="pt-2">
+              <Button type="submit" variant="secondary" className="w-full">
+                Manage Billing
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
 
-      <p className="text-xs text-fade">Online plan upgrades are coming soon — reach out to us in the meantime.</p>
+      {!BILLING_LIVE_MODE && (
+        <p className="text-xs text-fade">Online plan upgrades are coming soon — reach out to us in the meantime.</p>
+      )}
     </div>
   );
 }
