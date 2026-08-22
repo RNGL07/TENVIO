@@ -223,6 +223,14 @@ export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarn
                   {state.result.oneAway && " — one away!"}
                 </div>
               )}
+              {/* Phase N — a challenge finishing is something staff must act
+                  on right now (hand the thing over), so it gets called out
+                  separately rather than folded into the progress line. */}
+              {state.result.completedChallenges.map((c) => (
+                <div key={c.offerToken} className="text-xs mt-1 font-semibold">
+                  🏆 Finished &ldquo;{c.challengeName}&rdquo; — {c.rewardDescription}
+                </div>
+              ))}
               <div className="flex items-center gap-3 mt-1.5">
                 <button
                   type="button"

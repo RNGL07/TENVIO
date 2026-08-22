@@ -62,6 +62,16 @@ export function UsersIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function TrophyIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+      <path d="M7 6H4.5v1a3 3 0 0 0 3 3M17 6h2.5v1a3 3 0 0 1-3 3" />
+      <path d="M12 14v3M9 20h6M10 17h4" />
+    </svg>
+  );
+}
+
 export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>

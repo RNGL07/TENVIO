@@ -18,12 +18,14 @@ import {
   MenuIcon,
   CloseIcon,
   SparkIcon,
+  TrophyIcon,
 } from "@/components/icons";
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: GridIcon, exact: true },
   { href: "/dashboard/customers", label: "Customers", icon: UsersIcon },
   { href: "/dashboard/loyalty", label: "Loyalty", icon: LoyaltyIcon },
+  { href: "/dashboard/challenges", label: "Challenges", icon: TrophyIcon },
   { href: "/dashboard/campaigns", label: "Campaigns", icon: MegaphoneIcon },
   { href: "/dashboard/messages", label: "Messages", icon: MessageIcon },
   { href: "/dashboard/billing", label: "Billing", icon: SparkIcon },
