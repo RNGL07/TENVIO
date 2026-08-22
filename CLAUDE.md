@@ -1247,6 +1247,16 @@ Basic version DONE on `/admin` — MRR (live-computed from real subscriptions, e
 
 ## Phase K — Full QA & Production Validation
 
+Security/correctness audit pass DONE 2026-08-21. Found and fixed three real bugs, all in code that had shipped and none caught by any test:
+
+1. **Cross-tenant data leak** (`purchase-actions.ts`) — `idempotencyKey` is client-supplied and globally unique, and the P2002 catch path looked it up *unscoped*, then fetched that purchase's customer unscoped and returned their name/phone. A key collision leaked another merchant's customer data as a "successful" scan. Both lookups are now `businessId`-scoped.
+2. **Finalize/undo race** (`purchase-actions.ts`) — both sides did read-then-write on `finalizedAt`/`voidedAt`, so the auto-finalize timer and a staff Undo tap could both win: customer gets a "you earned a reward" text for a reversed purchase, linking to an already-voided Offer. Both now use an atomic compare-and-set with the guard in the WHERE clause.
+3. **Unsigned Twilio webhooks accepted** (`api/webhooks/twilio`) — signature validation was skipped entirely when `TWILIO_AUTH_TOKEN` was unset, which is a documented-supported production config. Anyone could forge STOP (opt any number out of every business) or START (re-subscribe someone who opted out — a consent decision Tenvio must legally honor). Now fails closed.
+
+Verified clean in the same pass: every query touching business-owned data is `businessId`-scoped; all admin actions require `requireAdminSession`; all write paths gate on `getBusinessAccess`; public customer signup respects RESTRICTED; the Stripe webhook already failed closed. Live-verified: all dashboard routes redirect anonymous visitors to `/login`, all admin routes stay gated even with a valid *merchant* session, bogus `/c/` and `/r/` tokens 404, and no horizontal overflow on any route at 430/390/375/320px.
+
+**Still outstanding for Phase K**: the audit was static + live-route testing. There is still no automated regression coverage for any of the three bugs above (needs a test database — see `BACKLOG.md` item 6), and no full lifecycle test against live Stripe in test mode.
+
 Full lifecycle, security, mobile, migration, Stripe, Admin and multi-tenant validation.
 
 ## Phase L — Multi-Industry Foundation

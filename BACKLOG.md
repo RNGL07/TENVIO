@@ -50,9 +50,14 @@ Decision: keep discard, or implement rollover?
 If it's real, the fix is switching to the lower-level `Html5Qrcode` class with a fully custom camera view.
 
 ### 6. Automated test coverage is thin
-Vitest exists but only covers the pure loyalty math (`src/lib/loyalty.test.ts`). **Not covered:** concurrency/idempotency on scan, tenant isolation, the finalize/undo window, webhook handling, access derivation. These need a real Postgres instance (or a mocked Prisma layer) to test properly.
+Vitest covers the pure loyalty math only (`src/lib/loyalty.test.ts`, expanded during Phase K with edge cases). **Not covered:** concurrency/idempotency on scan, tenant isolation, the finalize/undo race, webhook handling, access derivation. These need a real Postgres instance (or a mocked Prisma layer) to test properly.
 
-Given how much of Phase E0 was safety-critical transaction work, this is the highest-value engineering debt in the repo.
+This is the highest-value engineering debt in the repo, and Phase K raised the stakes: the audit found three real bugs in exactly the areas that have no test coverage (a cross-tenant leak in the idempotency path, a finalize/undo race, and an unsigned-webhook hole). All three were found by reading code, and nothing would have caught a regression of any of them.
+
+Worth adding when this is picked up — regression tests for each:
+- submit a purchase with an `idempotencyKey` belonging to another business → must not return that business's customer
+- fire finalize and undo concurrently on the same purchase → exactly one takes effect, and no SMS is sent for an undone purchase
+- POST to the Twilio webhook with no signature → consent records unchanged
 
 ### 7. Admin metrics depth
 `/admin` shows MRR, counts by status, trials ending soon. **Missing:** churn rate, trial→paid conversion rate, cohort retention, ARPU, and any trend-over-time view. All computable from existing data — just not built.
