@@ -1271,15 +1271,23 @@ Full lifecycle, security, mobile, migration, Stripe, Admin and multi-tenant vali
 
 ## Phase L — Multi-Industry Foundation
 
-Food & Beverage / Beauty & Personal Care / Fitness & Wellness and generic activity terminology.
+DONE (2026-08-21). `Business.industry` (Industry enum, defaults FOOD_BEVERAGE so existing businesses keep their exact wording) plus `src/lib/terminology.ts` as the single place industry wording resolves. Picker lives in Settings.
+
+**Hard rule: terminology affects LABELS ONLY, never behavior.** No industry branch exists anywhere in the loyalty/scan/reward logic, and none should be added — the moment industry drives behavior, Tenvio becomes three products to maintain instead of one. Also note wording comes from *industry*, not `earningMode`: how someone earns (per visit vs per item) and what the interaction is called are independent, and conflating them was a real bug fixed during this phase.
 
 ## Phase M — Flexible Rewards & Rewards Wallet
 
-General reward engine and richer customer card.
+DONE (2026-08-21). `RewardType`/`ManualRewardReason` enums with `rewardType`/`rewardValue`/`manualReason` on Offer (FREE_ITEM default, so every pre-existing Offer keeps its meaning). "Send Reward" on the customer profile issues a one-off reward outside the loyalty cycle. `/c/[token]` is now a real Rewards Wallet: every claimable reward plus live challenge progress.
+
+Two decisions to preserve: manual rewards deliberately **do not touch `loyaltyCount`** (a gift isn't earned progress — otherwise a service-recovery gesture silently advances someone toward their next real reward and the loyalty numbers stop meaning "activity that happened"), and they respect opt-out (reward still lands on the card, no text sent).
 
 ## Phase N — Challenges & Retention Features
 
-Fitness challenges, generic challenge engine, inactive segments, win-back and retention functionality.
+Challenge engine DONE (2026-08-21). `Challenge`/`ChallengeProgress` models plus `src/lib/challenges.ts`. Challenges run **alongside** the loyalty program — one logged activity advances both. Merchant UI at `/dashboard/challenges`, and Scan Mode calls out a completion immediately since staff must hand something over on the spot.
+
+Concurrency follows the Phase E0 pattern: progress upserts against `@@unique([challengeId, customerId])`, and completion is claimed with a conditional `updateMany(completedAt: null)` rather than read-then-write, so two simultaneous scans can't issue two rewards for one challenge. Undo reverses progress and voids an unredeemed challenge reward — an undone scan must not leave someone permanently closer to a goal.
+
+**Not built**: inactive-customer segments and win-back automation (the retention-intelligence half of this phase). Those need the behavioral analysis described in section 31 and are genuinely post-validation work — see `BACKLOG.md`.
 
 ---
 

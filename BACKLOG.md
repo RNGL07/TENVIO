@@ -70,15 +70,26 @@ Worth adding when this is picked up — regression tests for each:
 
 ---
 
+### 10. Retention intelligence (the unbuilt half of Phase N)
+Challenges shipped; the behavioral half did not. Missing: inactive-customer detection, normal-return-cycle detection per customer, win-back suggestions, churn-risk signals, segmentation.
+
+This is deliberate — section 31 of `CLAUDE.md` warns against fake "AI insights" without enough underlying data, and Tenvio currently has very little real behavioral history to analyze. Revisit once merchants have been logging activity for a while.
+
+### 11. Challenge features not built
+Working: create, list, end early, automatic progress + reward on completion, progress on the customer card, completion callout in Scan Mode.
+
+Not built: editing a challenge after creation, per-challenge participant drill-down, and "you're N away" challenge nudge texts (the last one is genuinely valuable — it's the mechanic that makes challenges drive return visits, and section 4 describes it explicitly).
+
+---
+
 ## Explicitly out of scope until customers validate the need
 
 Per the product principles in `CLAUDE.md` (sections 3, 16, 31, 32) these are **not** oversights:
 
-- Multi-industry terminology system (Phase L)
-- Rewards Wallet (Phase M)
-- Challenges (Phase N)
 - Spend-based loyalty (`PER_SPEND` is schema-reserved only — needs POS data Tenvio doesn't have)
 - POS integrations
 - AI-driven retention insights
 - Native mobile app
 - Support inbox / ticketing
+
+*(Phases L, M, and N moved out of this list on 2026-08-21 — Aaron chose to build them ahead of validation. Retention intelligence, the unbuilt half of N, is item 10 above.)*
