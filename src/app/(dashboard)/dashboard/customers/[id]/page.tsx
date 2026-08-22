@@ -3,7 +3,11 @@ import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, ProgressBar } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input, Label } from "@/components/ui/input";
 import { formatPhone, formatDateTime, initials } from "@/lib/utils";
+import { REWARD_TYPE_OPTIONS, MANUAL_REWARD_REASONS } from "@/lib/terminology";
+import { sendRewardAction } from "@/actions/reward-actions";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -12,7 +16,13 @@ const MONTHS = [
 
 type ActivityItem = { at: Date; title: string; subtitle?: string };
 
-export default async function CustomerProfilePage({ params }: { params: { id: string } }) {
+export default async function CustomerProfilePage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { sent?: string; error?: string };
+}) {
   const { business } = await requireSession();
   const program = await prisma.loyaltyProgram.findUniqueOrThrow({ where: { businessId: business.id } });
 
@@ -84,6 +94,17 @@ export default async function CustomerProfilePage({ params }: { params: { id: st
         </div>
       </div>
 
+      {searchParams.sent === "reward" && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-3.5 py-2.5 mb-5">
+          Reward sent. It&apos;s on their card now, and they got a text unless they&apos;d opted out.
+        </div>
+      )}
+      {searchParams.error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3.5 py-2.5 mb-5 break-words">
+          {searchParams.error}
+        </div>
+      )}
+
       <div className="grid md:grid-cols-3 gap-6 mb-8">
         <Card className="md:col-span-1">
           <CardContent className="p-5">
@@ -125,6 +146,65 @@ export default async function CustomerProfilePage({ params }: { params: { id: st
                 </p>
               </div>
             )}
+
+            {/* Phase M — send a reward by hand. Collapsed into a <details>
+                rather than a permanent form: comping is occasional, and an
+                always-open form on a profile invites accidental sends. */}
+            <details className="mt-5 pt-5 border-t border-sand group">
+              <summary className="text-sm font-semibold text-ink cursor-pointer list-none flex items-center justify-between">
+                Send a reward
+                <span className="text-fade text-xs group-open:hidden">Open</span>
+              </summary>
+              <form action={sendRewardAction} className="space-y-3 mt-3">
+                <input type="hidden" name="customerId" value={customer.id} />
+                <div>
+                  <Label htmlFor="description">What are they getting?</Label>
+                  <Input id="description" name="description" required placeholder="Free Coffee" />
+                </div>
+                <div>
+                  <Label htmlFor="rewardType">Type</Label>
+                  <select
+                    id="rewardType"
+                    name="rewardType"
+                    required
+                    defaultValue="FREE_ITEM"
+                    className="w-full bg-white border border-sand text-ink rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                  >
+                    {REWARD_TYPE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="reason">Why? (internal only)</Label>
+                  <select
+                    id="reason"
+                    name="reason"
+                    required
+                    defaultValue="APPRECIATION"
+                    className="w-full bg-white border border-sand text-ink rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                  >
+                    {MANUAL_REWARD_REASONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="expiresInDays">Expires in (days)</Label>
+                  <Input id="expiresInDays" name="expiresInDays" type="number" min={1} max={365} defaultValue={30} required />
+                </div>
+                <p className="text-xs text-fade">
+                  This doesn&apos;t change their loyalty progress — it&apos;s a gift on top, not a stamp.
+                </p>
+                <Button type="submit" size="sm" className="w-full">
+                  Send reward
+                </Button>
+              </form>
+            </details>
           </CardContent>
         </Card>
 

@@ -29,6 +29,30 @@ export default async function CustomerCardPage({
   });
   if (!customer || !customer.business.loyaltyProgram) notFound();
 
+  // Phase M — the Rewards Wallet. Everything currently claimable, plus any
+  // running challenge progress. Scoped to this customer via the row we just
+  // resolved from their token, so no extra tenant check is needed here.
+  const [activeOffers, challengeProgress] = await Promise.all([
+    prisma.offer.findMany({
+      where: {
+        customerId: customer.id,
+        voidedAt: null,
+        redemption: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.challengeProgress.findMany({
+      where: {
+        customerId: customer.id,
+        completedAt: null,
+        challenge: { active: true, startsAt: { lte: new Date() }, endsAt: { gte: new Date() } },
+      },
+      include: { challenge: true },
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
+
   const { business } = customer;
   const program = business.loyaltyProgram!;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -72,6 +96,56 @@ export default async function CustomerCardPage({
             and your next {program.rewardDescription.toLowerCase()} is on us.
           </p>
         </div>
+
+        {activeOffers.length > 0 && (
+          <div className="mt-4 text-left">
+            <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-2 px-1">
+              {activeOffers.length === 1 ? "Your reward" : "Your rewards"}
+            </p>
+            <div className="space-y-2">
+              {activeOffers.map((o) => (
+                <a
+                  key={o.id}
+                  href={`/r/${o.token}`}
+                  className="block bg-paper border border-brand-200 rounded-xl px-4 py-3 hover:border-brand-500/50"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-ink font-semibold text-sm break-words min-w-0">{o.description}</span>
+                    <span className="text-brand-700 text-xs font-bold shrink-0">Ready →</span>
+                  </div>
+                  {o.expiresAt && (
+                    <div className="text-fade text-[11px] mt-0.5">
+                      Use by {o.expiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </div>
+                  )}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {challengeProgress.length > 0 && (
+          <div className="mt-4 text-left">
+            <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-2 px-1">Challenges</p>
+            <div className="space-y-2">
+              {challengeProgress.map((p) => (
+                <div key={p.id} className="bg-paper border border-sand rounded-xl px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <span className="text-ink font-semibold text-sm break-words min-w-0">{p.challenge.name}</span>
+                    <span className="text-fade text-xs shrink-0 tabular-nums">
+                      {p.count} / {p.challenge.targetCount}
+                    </span>
+                  </div>
+                  <ProgressBar value={p.count} max={p.challenge.targetCount} />
+                  <div className="text-fade text-[11px] mt-1.5 break-words">
+                    {Math.max(0, p.challenge.targetCount - p.count)} to go — earn {p.challenge.rewardDescription.toLowerCase()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <p className="text-center text-[11px] text-fade/70 mt-4">
           Save this page or add it to your home screen — show it at the counter and staff will scan it,
           no need to give your number again.

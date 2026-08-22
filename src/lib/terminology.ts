@@ -81,6 +81,27 @@ export function terminologyFor(industry: Industry): Terminology {
   return BY_INDUSTRY[industry] ?? FOOD;
 }
 
+/** Phase M. Reward types offered in the merchant UI. CUSTOM is last
+ * deliberately — it's the escape hatch, not the default choice. */
+export const REWARD_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: "FREE_ITEM", label: "Free item" },
+  { value: "FREE_SERVICE", label: "Free service" },
+  { value: "FREE_CLASS", label: "Free class" },
+  { value: "DOLLAR_DISCOUNT", label: "Dollar discount" },
+  { value: "PERCENT_DISCOUNT", label: "Percent discount" },
+  { value: "GUEST_PASS", label: "Guest pass" },
+  { value: "CUSTOM", label: "Something else" },
+];
+
+export const MANUAL_REWARD_REASONS: { value: string; label: string }[] = [
+  { value: "BIRTHDAY", label: "Birthday" },
+  { value: "APPRECIATION", label: "Customer appreciation" },
+  { value: "SERVICE_RECOVERY", label: "Making up for a bad experience" },
+  { value: "PROMOTION", label: "Promotion" },
+  { value: "REFERRAL", label: "Referral thank-you" },
+  { value: "OTHER", label: "Other" },
+];
+
 export const INDUSTRY_OPTIONS: { value: Industry; label: string; hint: string }[] = [
   { value: "FOOD_BEVERAGE", label: "Food & drink", hint: "Coffee, boba, bakery, food truck, dessert" },
   { value: "BEAUTY", label: "Beauty & personal care", hint: "Barber, salon, nails, lashes, brows, spa" },

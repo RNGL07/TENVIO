@@ -74,6 +74,39 @@ export const cancelSubscriptionSchema = z.object({
   feedback: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 
+export const sendRewardSchema = z.object({
+  description: z.string().trim().min(2, "Describe what they're getting").max(120),
+  rewardType: z.enum([
+    "FREE_ITEM",
+    "FREE_SERVICE",
+    "FREE_CLASS",
+    "DOLLAR_DISCOUNT",
+    "PERCENT_DISCOUNT",
+    "GUEST_PASS",
+    "CUSTOM",
+  ]),
+  reason: z.enum(["BIRTHDAY", "APPRECIATION", "SERVICE_RECOVERY", "PROMOTION", "REFERRAL", "OTHER"]),
+  expiresInDays: z.coerce.number().int().min(1).max(365),
+});
+
+export const challengeSchema = z.object({
+  name: z.string().trim().min(2, "Give the challenge a name").max(120),
+  description: z.string().trim().max(300).optional().or(z.literal("")),
+  targetCount: z.coerce.number().int().min(2, "A challenge needs at least 2 to be a challenge").max(500),
+  rewardDescription: z.string().trim().min(2, "Describe the reward").max(120),
+  rewardType: z.enum([
+    "FREE_ITEM",
+    "FREE_SERVICE",
+    "FREE_CLASS",
+    "DOLLAR_DISCOUNT",
+    "PERCENT_DISCOUNT",
+    "GUEST_PASS",
+    "CUSTOM",
+  ]),
+  startsAt: z.string().min(1, "Pick a start date"),
+  endsAt: z.string().min(1, "Pick an end date"),
+});
+
 export const adminPlanSchema = z.object({
   key: z
     .string()
