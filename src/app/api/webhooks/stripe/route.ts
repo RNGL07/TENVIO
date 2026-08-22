@@ -105,15 +105,33 @@ export async function POST(req: NextRequest) {
         const stripeCustomerId = obj.customer as string;
         const sub = await prisma.subscription.findFirst({ where: { stripeCustomerId } });
         if (sub) {
+          const wasCanceling = sub.cancelAtPeriodEnd;
+          const isCanceling = Boolean(obj.cancel_at_period_end);
+
           await prisma.subscription.update({
             where: { id: sub.id },
             data: {
-              status: mapStripeSubscriptionToStatus(obj.status, Boolean(obj.cancel_at_period_end)),
-              cancelAtPeriodEnd: Boolean(obj.cancel_at_period_end),
+              status: mapStripeSubscriptionToStatus(obj.status, isCanceling),
+              cancelAtPeriodEnd: isCanceling,
               currentPeriodEnd: obj.current_period_end ? new Date(obj.current_period_end * 1000) : undefined,
               stripeSubscriptionId: obj.id ?? undefined,
             },
           });
+
+          // Un-canceled (e.g. "Renew subscription" in the Portal, or Tenvio's
+          // own flow adds an undo affordance later) — close out whichever
+          // Cancellation record was still open so Admin Hub reporting
+          // doesn't keep showing a business as "canceling" once they've
+          // reversed it. Only Tenvio's own cancellation flow
+          // (cancelSubscriptionAction) creates these rows in the first
+          // place, so there may be none to close for older cancellations
+          // that predate it — that's fine, this is a no-op then.
+          if (wasCanceling && !isCanceling) {
+            await prisma.cancellation.updateMany({
+              where: { subscriptionId: sub.id, reactivatedAt: null },
+              data: { reactivatedAt: new Date() },
+            });
+          }
         }
         break;
       }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deriveAccess } from "@/lib/access";
@@ -48,7 +49,7 @@ function daysLeft(d: Date | null): number {
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: { error?: string; checkout?: string };
+  searchParams: { error?: string; checkout?: string; canceled?: string };
 }) {
   const { business } = await requireSession();
   const subscription = await prisma.subscription.findUnique({
@@ -88,6 +89,13 @@ export default async function BillingPage({
       {searchParams.checkout === "success" && (
         <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-3.5 py-2.5">
           You&apos;re all set{isTrial ? " — your card is saved and your trial continues." : " — your subscription is active."}
+        </div>
+      )}
+
+      {searchParams.canceled === "1" && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-3.5 py-2.5">
+          Your subscription is set to cancel. You&apos;ll keep full access until the end of your current billing
+          period.
         </div>
       )}
 
@@ -174,6 +182,14 @@ export default async function BillingPage({
                 Manage Billing
               </Button>
             </form>
+          )}
+
+          {showManage && subscription?.status !== "CANCELING" && (
+            <div className="text-center pt-1">
+              <Link href="/dashboard/billing/cancel" className="text-xs text-fade hover:text-red-600 underline">
+                Cancel subscription
+              </Link>
+            </div>
           )}
         </CardContent>
       </Card>

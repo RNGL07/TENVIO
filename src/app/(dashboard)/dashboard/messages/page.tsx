@@ -56,46 +56,40 @@ export default async function MessagesPage({ searchParams }: { searchParams: { t
         ))}
       </div>
 
-      <div className="bg-white border border-sand rounded-xl overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
-          <thead className="bg-black/[0.02] text-fade text-left">
-            <tr>
-              <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Customer</th>
-              <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Message</th>
-              <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Type</th>
-              <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Status</th>
-              <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wide">Time</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-sand">
-            {messages.map((m) => (
-              <tr key={m.id}>
-                <td className="px-4 py-3 text-ink whitespace-nowrap">
-                  {m.customer.firstName || formatPhone(m.customer.phoneNumber)}
-                </td>
-                <td className="px-4 py-3 text-ink max-w-md truncate">{m.body}</td>
-                <td className="px-4 py-3 text-fade">{TYPE_LABEL[m.type]}</td>
-                <td className="px-4 py-3">
-                  {m.status === "FAILED" ? (
-                    <Badge tone="red">Failed</Badge>
-                  ) : m.simulated ? (
-                    <Badge tone="neutral">Simulated</Badge>
-                  ) : (
-                    <Badge tone="green">Sent</Badge>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-fade whitespace-nowrap">{formatDateTime(m.createdAt)}</td>
-              </tr>
-            ))}
-            {messages.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-fade">
-                  No messages yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="bg-white border border-sand rounded-xl overflow-hidden">
+        <div className="hidden md:grid md:grid-cols-[1fr_2fr_0.7fr_0.7fr_0.9fr] gap-3 px-4 py-3 bg-black/[0.02] text-fade text-xs font-semibold uppercase tracking-wide">
+          <span>Customer</span>
+          <span>Message</span>
+          <span>Type</span>
+          <span>Status</span>
+          <span>Time</span>
+        </div>
+        <div className="divide-y divide-sand">
+          {messages.map((m) => (
+            <div key={m.id} className="px-4 py-3 md:grid md:grid-cols-[1fr_2fr_0.7fr_0.7fr_0.9fr] md:items-center gap-1 md:gap-3">
+              <div className="flex items-center justify-between md:block">
+                <span className="text-ink font-medium md:font-normal">{m.customer.firstName || formatPhone(m.customer.phoneNumber)}</span>
+                <span className="text-fade text-xs md:hidden">{formatDateTime(m.createdAt)}</span>
+              </div>
+              <div className="text-ink text-sm mt-1.5 md:mt-0 md:truncate">{m.body}</div>
+              <div className="hidden md:block text-fade text-sm">{TYPE_LABEL[m.type]}</div>
+              <div className="flex items-center gap-2 mt-2 md:mt-0">
+                <span className="text-fade text-xs md:hidden">{TYPE_LABEL[m.type]}</span>
+                {m.status === "FAILED" ? (
+                  <Badge tone="red">Failed</Badge>
+                ) : m.simulated ? (
+                  <Badge tone="neutral">Simulated</Badge>
+                ) : (
+                  <Badge tone="green">Sent</Badge>
+                )}
+              </div>
+              <div className="hidden md:block text-fade text-sm whitespace-nowrap">{formatDateTime(m.createdAt)}</div>
+            </div>
+          ))}
+          {messages.length === 0 && (
+            <div className="px-4 py-10 text-center text-fade">No messages yet.</div>
+          )}
+        </div>
       </div>
     </div>
   );

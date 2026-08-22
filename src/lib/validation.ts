@@ -57,6 +57,22 @@ export const settingsLoyaltySchema = z.object({
   earningMode: z.enum(["PER_VISIT", "PER_UNIT"]),
 });
 
+export const cancelSubscriptionSchema = z.object({
+  reason: z.enum([
+    "TOO_EXPENSIVE",
+    "NOT_USING_ENOUGH",
+    "MISSING_FEATURE",
+    "DIFFICULT_TO_USE",
+    "SWITCHING",
+    "CLOSING_BUSINESS",
+    "TECHNICAL_PROBLEMS",
+    "DIDNT_SEE_VALUE",
+    "TEMPORARY_SEASONAL",
+    "OTHER",
+  ], { errorMap: () => ({ message: "Pick a reason so we know why." }) }),
+  feedback: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
 export const settingsMessagingSchema = z.object({
   welcomeSmsEnabled: z.boolean(),
   oneAwaySmsEnabled: z.boolean(),

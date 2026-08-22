@@ -135,6 +135,34 @@ export async function createBillingPortalSession(businessId: string): Promise<st
   return session.url;
 }
 
+/**
+ * Sets cancel_at_period_end=true on the business's live Stripe subscription
+ * — the merchant keeps access through the current period, matching the
+ * Portal's own cancel behavior (see createBillingPortalSession above), just
+ * triggered from Tenvio's own cancellation flow instead. Returns the
+ * Stripe-reported period end so the caller can record it on the
+ * Cancellation row immediately, without waiting for the
+ * customer.subscription.updated webhook to land first (that webhook still
+ * fires and updates the local Subscription row the same way a
+ * Portal-initiated cancellation would — this function only handles the
+ * Stripe API call + the audit record, not the status-derivation logic,
+ * which stays centralized in the webhook handler per the SubscriptionStatus
+ * comment in schema.prisma).
+ */
+export async function cancelSubscription(businessId: string): Promise<{ effectiveAt: Date } | null> {
+  const stripe = await getStripeClient();
+  if (!stripe) return null;
+
+  const subscription = await prisma.subscription.findUnique({ where: { businessId } });
+  if (!subscription?.stripeSubscriptionId) return null;
+
+  const updated = await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+    cancel_at_period_end: true,
+  });
+
+  return { effectiveAt: new Date(updated.current_period_end * 1000) };
+}
+
 /** Fetches a subscription directly from Stripe by id. Used by the webhook
  * handler's checkout.session.completed case to derive the TRUE initial
  * status (which may be "trialing", not "active" — see the trial
