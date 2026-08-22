@@ -27,7 +27,7 @@ export default async function JoinPage({
           <LogoMark width={32} height={32} />
         </div>
         <div className="bg-paper border border-sand rounded-xl p-7 shadow-sm">
-          <h1 className="text-2xl font-extrabold text-ink text-center leading-tight mb-1">
+          <h1 className="text-2xl font-extrabold text-ink text-center leading-tight mb-1 break-words">
             Join {business.name} Rewards
           </h1>
           <p className="text-fade text-sm text-center mb-6">Earn rewards every time you visit.</p>

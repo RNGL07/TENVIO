@@ -25,8 +25,8 @@ export default async function RewardPage({ params }: { params: { token: string }
           <LogoMark width={28} height={28} />
         </div>
         <div className="bg-paper border border-sand rounded-xl p-8 shadow-sm">
-          <h1 className="text-2xl font-extrabold text-ink mb-1">{offer.description} 🎉</h1>
-          <p className="text-fade text-sm mb-6">{offer.business.name}</p>
+          <h1 className="text-2xl font-extrabold text-ink mb-1 break-words">{offer.description} 🎉</h1>
+          <p className="text-fade text-sm mb-6 break-words">{offer.business.name}</p>
 
           {redeemed ? (
             <Badge tone="neutral" className="mb-6">Already redeemed</Badge>

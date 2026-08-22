@@ -87,9 +87,17 @@ export default async function AdminOverviewPage() {
         <Card><CardContent className="p-4"><div className="text-lg font-extrabold text-ink">{compedCount}</div><div className="text-xs text-fade">Comped</div></CardContent></Card>
       </div>
 
-      <Link href="/admin/businesses" className="text-sm text-brand-600 font-medium hover:text-brand-700">
-        View all businesses →
-      </Link>
+      <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+        <Link href="/admin/businesses" className="text-brand-600 font-medium hover:text-brand-700">
+          View all businesses →
+        </Link>
+        <Link href="/admin/cancellations" className="text-brand-600 font-medium hover:text-brand-700">
+          Why merchants are leaving →
+        </Link>
+        <Link href="/admin/audit" className="text-brand-600 font-medium hover:text-brand-700">
+          Audit log →
+        </Link>
+      </div>
     </div>
   );
 }

@@ -51,7 +51,7 @@ export default async function CustomerCardPage({
             </>
           ) : (
             <>
-              <h1 className="text-2xl font-extrabold text-ink mb-1">{business.name} Rewards</h1>
+              <h1 className="text-2xl font-extrabold text-ink mb-1 break-words">{business.name} Rewards</h1>
               <p className="text-fade text-sm mb-6">
                 {customer.firstName ? `${customer.firstName}'s loyalty card.` : "Your loyalty card."}
               </p>
