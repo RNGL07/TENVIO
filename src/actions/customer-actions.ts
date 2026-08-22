@@ -66,7 +66,7 @@ export async function joinLoyaltyProgramAction(slug: string, formData: FormData)
         customerId: customer.id,
         to: phone,
         type: "WELCOME",
-        body: `Welcome to ${business.name} Rewards! You're now earning toward ${business.loyaltyProgram.rewardDescription}. ☕`,
+        body: `Welcome to ${business.name} Rewards! You're now earning toward ${business.loyaltyProgram.rewardDescription}.`,
       });
     }
   }

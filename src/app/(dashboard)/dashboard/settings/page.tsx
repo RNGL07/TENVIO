@@ -94,7 +94,7 @@ export default async function SettingsPage({
                     <span>
                       <span className="font-medium">Per item or service</span>
                       <span className="block text-xs text-fade">
-                        Staff pick a quantity when scanning — 3 coffees in one visit counts as 3.
+                        Staff pick a quantity when scanning — 3 items or services in one visit counts as 3.
                       </span>
                     </span>
                   </label>

@@ -50,7 +50,7 @@ export default async function CustomerProfilePage({ params }: { params: { id: st
     { at: customer.signupAt, title: `Joined ${business.name} Rewards` },
     ...purchases.map((p) => ({
       at: p.createdAt,
-      title: "Coffee purchase logged",
+      title: program.earningMode === "PER_UNIT" ? "Purchase logged" : "Visit logged",
       subtitle: `+${program.earningMode === "PER_VISIT" ? 1 : p.quantity} loyalty progress`,
     })),
     ...offers.map((o) => ({

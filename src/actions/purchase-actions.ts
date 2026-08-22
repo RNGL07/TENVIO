@@ -220,7 +220,7 @@ async function sendPurchaseSms(purchaseId: string, session: SessionPayload) {
       customerId: purchase.customerId,
       to: purchase.customer.phoneNumber,
       type: "LOYALTY_ONE_AWAY",
-      body: `You're only 1 ${unitFromReward(program.rewardDescription)} away from ${program.rewardDescription} at ${business.name} ☕ See you soon!`,
+      body: `You're only 1 ${unitFromReward(program.rewardDescription)} away from ${program.rewardDescription} at ${business.name}. See you soon!`,
     });
   }
 }
