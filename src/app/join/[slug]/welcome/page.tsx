@@ -22,6 +22,7 @@ export default async function JoinWelcomePage({
   if (!customer) notFound();
 
   const threshold = business.loyaltyProgram.purchasesRequired;
+  const isPerUnit = business.loyaltyProgram.earningMode === "PER_UNIT";
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center px-4 py-10">
@@ -38,10 +39,11 @@ export default async function JoinWelcomePage({
           <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-2">Your progress</p>
           <ProgressBar value={customer.loyaltyCount} max={threshold} className="h-2.5 mb-3" />
           <p className="text-lg font-bold text-ink">
-            {customer.loyaltyCount} / {threshold} {threshold === 1 ? "purchase" : "purchases"}
+            {customer.loyaltyCount} / {threshold} {isPerUnit ? (threshold === 1 ? "item" : "items") : (threshold === 1 ? "visit" : "visits")}
           </p>
           <p className="text-fade text-sm mt-1">
-            Buy {threshold} and your next {business.loyaltyProgram.rewardDescription.toLowerCase()} is on us.
+            {isPerUnit ? `Get ${threshold}` : `Visit ${threshold} times`} and your next{" "}
+            {business.loyaltyProgram.rewardDescription.toLowerCase()} is on us.
           </p>
         </div>
         <p className="text-center text-[11px] text-fade/70 mt-4">

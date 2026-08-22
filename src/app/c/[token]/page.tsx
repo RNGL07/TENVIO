@@ -65,10 +65,11 @@ export default async function CustomerCardPage({
           <ProgressBar value={customer.loyaltyCount} max={program.purchasesRequired} className="h-2.5 mb-3" />
           <p className="text-lg font-bold text-ink">
             {customer.loyaltyCount} / {program.purchasesRequired}{" "}
-            {program.purchasesRequired === 1 ? "purchase" : "purchases"}
+            {program.earningMode === "PER_UNIT" ? (program.purchasesRequired === 1 ? "item" : "items") : (program.purchasesRequired === 1 ? "visit" : "visits")}
           </p>
           <p className="text-fade text-sm mt-1">
-            Buy {program.purchasesRequired} and your next {program.rewardDescription.toLowerCase()} is on us.
+            {program.earningMode === "PER_UNIT" ? `Get ${program.purchasesRequired}` : `Visit ${program.purchasesRequired} times`}{" "}
+            and your next {program.rewardDescription.toLowerCase()} is on us.
           </p>
         </div>
         <p className="text-center text-[11px] text-fade/70 mt-4">

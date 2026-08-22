@@ -26,7 +26,8 @@ export default async function LogPurchasePage({
     <div className="max-w-lg">
       <h1 className="text-2xl font-extrabold text-ink tracking-tight mb-1">Log a purchase</h1>
       <p className="text-fade text-sm mb-6">
-        Buy {program.purchasesRequired}, get {program.rewardDescription.toLowerCase()}.
+        {program.earningMode === "PER_UNIT" ? `Get ${program.purchasesRequired}` : `Visit ${program.purchasesRequired} times`}
+        , get {program.rewardDescription.toLowerCase()}.
       </p>
 
       {searchParams.error && (
@@ -106,7 +107,8 @@ export default async function LogPurchasePage({
 
             <ProgressBar value={customer.loyaltyCount} max={program.purchasesRequired} className="h-2.5 mb-2" />
             <p className="text-sm text-fade mb-5">
-              {customer.loyaltyCount} / {program.purchasesRequired} {program.purchasesRequired === 1 ? "purchase" : "purchases"}
+              {customer.loyaltyCount} / {program.purchasesRequired}{" "}
+              {program.earningMode === "PER_UNIT" ? (program.purchasesRequired === 1 ? "item" : "items") : (program.purchasesRequired === 1 ? "visit" : "visits")}
             </p>
 
             <form action={logPurchaseAction} className="space-y-3">
