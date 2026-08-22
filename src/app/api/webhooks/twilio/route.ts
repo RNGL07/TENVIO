@@ -29,21 +29,34 @@ export async function POST(req: NextRequest) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const formData = await req.formData();
 
-  if (authToken) {
-    const signature = req.headers.get("x-twilio-signature") || "";
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const url = `${appUrl}${new URL(req.url).pathname}`;
-    const params: Record<string, string> = {};
-    formData.forEach((value, key) => {
-      params[key] = String(value);
-    });
+  // Fail CLOSED when there's no auth token, rather than skipping validation.
+  // Twilio env vars are documented as optional/blank-safe (SMS falls back to
+  // dev-log mode), so a deploy can legitimately run without them — but this
+  // route is publicly reachable regardless. Without a token there is no real
+  // Twilio integration, therefore no legitimate inbound webhook, so anything
+  // arriving here is misconfiguration or forgery. Previously such requests
+  // were processed unvalidated, which let anyone opt an arbitrary phone
+  // number out of every business (nuisance), or worse, forge START to
+  // re-subscribe someone who had opted out — reversing a consent decision
+  // Tenvio is legally required to honor.
+  if (!authToken) {
+    console.warn("[tenvio][webhooks/twilio] TWILIO_AUTH_TOKEN unset — refusing to process inbound webhook");
+    return xmlResponse();
+  }
 
-    const { default: twilio } = await import("twilio");
-    const valid = twilio.validateRequest(authToken, signature, url, params);
-    if (!valid) {
-      console.warn("[tenvio][webhooks/twilio] signature validation failed, ignoring request");
-      return xmlResponse();
-    }
+  const signature = req.headers.get("x-twilio-signature") || "";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const url = `${appUrl}${new URL(req.url).pathname}`;
+  const params: Record<string, string> = {};
+  formData.forEach((value, key) => {
+    params[key] = String(value);
+  });
+
+  const { default: twilio } = await import("twilio");
+  const valid = twilio.validateRequest(authToken, signature, url, params);
+  if (!valid) {
+    console.warn("[tenvio][webhooks/twilio] signature validation failed, ignoring request");
+    return xmlResponse();
   }
 
   const body = String(formData.get("Body") || "").trim().toUpperCase();
