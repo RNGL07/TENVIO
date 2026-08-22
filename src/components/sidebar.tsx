@@ -37,7 +37,18 @@ const NAV = [
  * hamburger button replaces it. At md and above this renders exactly like
  * the original always-visible sidebar.
  */
-export function Sidebar({ businessName, email }: { businessName: string; email: string }) {
+export function Sidebar({
+  businessName,
+  email,
+  logActionLabel,
+}: {
+  businessName: string;
+  email: string;
+  /** Industry-aware label for the primary action (Phase L) — "Log Purchase"
+   * for food, "Log Visit" for beauty, "Log Check-in" for fitness. Resolved
+   * by the caller via lib/terminology.ts so this component stays presentational. */
+  logActionLabel: string;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -65,7 +76,7 @@ export function Sidebar({ businessName, email }: { businessName: string; email: 
         </div>
         <Link
           href="/dashboard/log-purchase"
-          aria-label="Log Purchase"
+          aria-label={logActionLabel}
           className="flex items-center justify-center w-9 h-9 rounded-lg bg-ink text-white"
         >
           <PlusIcon className="w-4 h-4" />
@@ -108,7 +119,7 @@ export function Sidebar({ businessName, email }: { businessName: string; email: 
             href="/dashboard/log-purchase"
             className="flex items-center justify-center gap-2 w-full bg-ink hover:bg-black text-white text-sm font-semibold rounded-lg py-2.5 transition-colors"
           >
-            <PlusIcon className="w-4 h-4" /> Log Purchase
+            <PlusIcon className="w-4 h-4" /> {logActionLabel}
           </Link>
         </div>
 

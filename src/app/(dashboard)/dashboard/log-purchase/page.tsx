@@ -9,6 +9,7 @@ import { ProgressBar } from "@/components/ui/badge";
 import { CheckCircleIcon, PhoneIcon } from "@/components/icons";
 import { formatPhone, initials } from "@/lib/utils";
 import { LogPurchaseScanPanel } from "@/components/log-purchase-scan-panel";
+import { terminologyFor } from "@/lib/terminology";
 
 export default async function LogPurchasePage({
   searchParams,
@@ -22,7 +23,11 @@ export default async function LogPurchasePage({
     ? await prisma.customer.findFirst({ where: { id: searchParams.customer, businessId: business.id } })
     : null;
 
-  const activityNoun = program.earningMode === "PER_UNIT" ? "purchase" : "visit";
+  // Wording comes from the business's industry (Phase L), not from the
+  // earning mode — how a customer earns and what the interaction is called
+  // are independent. A gym counting individual classes still logs
+  // "check-ins", not "purchases".
+  const terms = terminologyFor(business.industry);
 
   return (
     <div className="max-w-lg">
@@ -31,10 +36,9 @@ export default async function LogPurchasePage({
           vertical space as possible and Scan Mode sits near the top of the
           viewport on a phone. See CLAUDE.md section 26. */}
       <div className="mb-4">
-        <h1 className="text-2xl font-extrabold text-ink tracking-tight">Log a {activityNoun}</h1>
+        <h1 className="text-2xl font-extrabold text-ink tracking-tight">{terms.logAction}</h1>
         <p className="text-fade text-sm mt-0.5">
-          {program.earningMode === "PER_UNIT" ? `Get ${program.purchasesRequired}` : `Visit ${program.purchasesRequired} times`}
-          , get {program.rewardDescription.toLowerCase()}.
+          {terms.goalPhrase(program.purchasesRequired)}, get {program.rewardDescription.toLowerCase()}.
         </p>
       </div>
 
@@ -51,7 +55,8 @@ export default async function LogPurchasePage({
           </span>
           <div>
             <div className="font-extrabold text-base">
-              🎉 Congrats — {customer.firstName || "this customer"} just earned {program.rewardDescription.toLowerCase()}!
+              🎉 Congrats — {customer.firstName || `this ${terms.person}`} just earned{" "}
+              {program.rewardDescription.toLowerCase()}!
             </div>
             <div className="text-sm mt-0.5">Go ahead and hand it over. They'll also get a text with their reward code.</div>
           </div>
@@ -64,9 +69,9 @@ export default async function LogPurchasePage({
           </span>
           <span className="text-sm">
             {searchParams.result === "one_away" &&
-              `Purchase added. ${customer.firstName || "This customer"} is 1 away from a reward — a text went out to let them know.`}
+              `${terms.activityLogged}. ${customer.firstName || `This ${terms.person}`} is 1 away from a reward — a text went out to let them know.`}
             {searchParams.result === "logged" &&
-              `Purchase added. ${customer.firstName || "This customer"} is now ${searchParams.count}/${searchParams.threshold}.`}
+              `${terms.activityLogged}. ${customer.firstName || `This ${terms.person}`} is now ${searchParams.count}/${searchParams.threshold}.`}
           </span>
         </div>
       )}
@@ -123,7 +128,7 @@ export default async function LogPurchasePage({
             <ProgressBar value={customer.loyaltyCount} max={program.purchasesRequired} className="h-2.5 mb-2" />
             <p className="text-sm text-fade mb-5">
               {customer.loyaltyCount} / {program.purchasesRequired}{" "}
-              {program.earningMode === "PER_UNIT" ? (program.purchasesRequired === 1 ? "item" : "items") : (program.purchasesRequired === 1 ? "visit" : "visits")}
+              {program.purchasesRequired === 1 ? terms.activity : terms.activityPlural}
             </p>
 
             <form action={logPurchaseAction} className="space-y-3">
@@ -135,7 +140,7 @@ export default async function LogPurchasePage({
                 </div>
               )}
               <Button type="submit" className="w-full">
-                Add {activityNoun === "visit" ? "Visit" : "Purchase"}
+                {terms.logAction}
               </Button>
             </form>
           </CardContent>

@@ -47,6 +47,7 @@ export const redeemSchema = z.object({
 export const settingsBusinessSchema = z.object({
   name: z.string().trim().min(2).max(120),
   location: z.string().trim().max(200).optional().or(z.literal("")),
+  industry: z.enum(["FOOD_BEVERAGE", "BEAUTY", "FITNESS", "OTHER"]),
 });
 
 export const settingsLoyaltySchema = z.object({

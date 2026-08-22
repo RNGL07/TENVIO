@@ -9,6 +9,7 @@ import { logOutAction } from "@/actions/auth-actions";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { INDUSTRY_OPTIONS } from "@/lib/terminology";
 
 const SAVED_LABEL: Record<string, string> = {
   business: "Business info saved.",
@@ -54,6 +55,30 @@ export default async function SettingsPage({
               <div>
                 <Label htmlFor="location">Location</Label>
                 <Input id="location" name="location" defaultValue={business.location ?? ""} />
+              </div>
+              <div>
+                <Label>What kind of business is this?</Label>
+                <p className="text-xs text-fade mb-2 -mt-1">
+                  Only changes wording — staff see &quot;Log Visit&quot; instead of &quot;Log Purchase&quot;, and so on.
+                  Your rewards and customer data stay exactly the same.
+                </p>
+                <div className="space-y-2">
+                  {INDUSTRY_OPTIONS.map((opt) => (
+                    <label key={opt.value} className="flex items-start gap-2.5 text-sm text-ink">
+                      <input
+                        type="radio"
+                        name="industry"
+                        value={opt.value}
+                        defaultChecked={business.industry === opt.value}
+                        className="mt-0.5 w-4 h-4 accent-brand-600"
+                      />
+                      <span className="min-w-0">
+                        <span className="font-medium">{opt.label}</span>
+                        <span className="block text-xs text-fade break-words">{opt.hint}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <Button type="submit" size="sm">Save</Button>
             </form>

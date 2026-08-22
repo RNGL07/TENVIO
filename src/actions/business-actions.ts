@@ -42,14 +42,22 @@ export async function updateBusinessSettingsAction(formData: FormData) {
   const parsed = settingsBusinessSchema.safeParse({
     name: formData.get("name"),
     location: formData.get("location") || undefined,
+    industry: formData.get("industry"),
   });
   if (!parsed.success) {
     redirect(`/dashboard/settings?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Check your details.")}`);
   }
   await prisma.business.update({
     where: { id: businessId },
-    data: { name: parsed.data.name, location: parsed.data.location || null },
+    data: {
+      name: parsed.data.name,
+      location: parsed.data.location || null,
+      industry: parsed.data.industry,
+    },
   });
+  // Industry changes wording across the whole merchant app, so every
+  // dashboard route has to re-render, not just settings.
+  revalidatePath("/dashboard", "layout");
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?saved=business");
 }

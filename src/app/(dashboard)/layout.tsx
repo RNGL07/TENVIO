@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deriveAccess } from "@/lib/access";
 import { Sidebar } from "@/components/sidebar";
+import { terminologyFor } from "@/lib/terminology";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, business } = await requireSession();
@@ -20,10 +21,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // failing and where to go, without blocking read access to the dashboard.
   const subscription = await prisma.subscription.findUnique({ where: { businessId: business.id } });
   const access = subscription ? deriveAccess(subscription) : "RESTRICTED";
+  const terms = terminologyFor(business.industry);
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-cream">
-      <Sidebar businessName={business.name} email={user.email} />
+      <Sidebar businessName={business.name} email={user.email} logActionLabel={terms.logAction} />
       <main className="flex-1 min-w-0 px-4 py-5 md:px-8 md:py-8 max-w-6xl w-full">
         {access === "RESTRICTED" && (
           <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
