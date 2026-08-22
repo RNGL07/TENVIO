@@ -112,6 +112,84 @@ describe("calculateLoyaltyProgress", () => {
   });
 });
 
+describe("calculateLoyaltyProgress — edge cases found during Phase K audit", () => {
+  it("handles a buy-1-get-1 program (threshold of 1) without ever claiming one-away", () => {
+    const result = calculateLoyaltyProgress({
+      currentCount: 0,
+      quantity: 1,
+      threshold: 1,
+      earningMode: "PER_VISIT",
+      alreadyNotifiedOneAway: false,
+    });
+    expect(result.rewardEarned).toBe(true);
+    expect(result.loyaltyCountAfter).toBe(0);
+    // threshold-1 is 0, and increment is always >= 1, so newCount can never
+    // land on it — a one-away text for a 1-visit program would be nonsense.
+    expect(result.oneAway).toBe(false);
+  });
+
+  it("still earns only ONE reward when quantity covers several thresholds", () => {
+    // 25 units against a 10-unit threshold is 2.5 rewards' worth. Only one
+    // Offer is created (see loyaltyCountAfter/rewardEarned) — the surplus is
+    // discarded, matching the documented no-rollover decision. Encoded as a
+    // test so a future rollover change has to consciously update it.
+    const result = calculateLoyaltyProgress({
+      currentCount: 0,
+      quantity: 25,
+      threshold: 10,
+      earningMode: "PER_UNIT",
+      alreadyNotifiedOneAway: false,
+    });
+    expect(result.rewardEarned).toBe(true);
+    expect(result.newCount).toBe(25);
+    expect(result.loyaltyCountAfter).toBe(0);
+  });
+
+  it("earns a reward immediately if the merchant lowered the threshold below the customer's count", () => {
+    // Merchant drops "10 visits" to "5" while someone sits at 7. The next
+    // visit should pay out rather than stranding them above a threshold
+    // they've already passed.
+    const result = calculateLoyaltyProgress({
+      currentCount: 7,
+      quantity: 1,
+      threshold: 5,
+      earningMode: "PER_VISIT",
+      alreadyNotifiedOneAway: false,
+    });
+    expect(result.rewardEarned).toBe(true);
+    expect(result.loyaltyCountAfter).toBe(0);
+  });
+
+  it("PER_VISIT ignores quantity even when quantity is absurd", () => {
+    const result = calculateLoyaltyProgress({
+      currentCount: 0,
+      quantity: 9999,
+      threshold: 10,
+      earningMode: "PER_VISIT",
+      alreadyNotifiedOneAway: false,
+    });
+    expect(result.increment).toBe(1);
+    expect(result.rewardEarned).toBe(false);
+  });
+
+  it("never reports both a reward and a one-away for the same interaction", () => {
+    // These drive two different SMS templates; sending both would text the
+    // customer twice with contradictory messages.
+    for (let currentCount = 0; currentCount < 12; currentCount++) {
+      for (const quantity of [1, 2, 3, 5]) {
+        const r = calculateLoyaltyProgress({
+          currentCount,
+          quantity,
+          threshold: 10,
+          earningMode: "PER_UNIT",
+          alreadyNotifiedOneAway: false,
+        });
+        expect(r.rewardEarned && r.oneAway).toBe(false);
+      }
+    }
+  });
+});
+
 describe("isWithinCooldown", () => {
   it("is false when there's no prior purchase", () => {
     expect(isWithinCooldown(null, new Date(), 8000)).toBe(false);

@@ -351,10 +351,19 @@ export async function finalizePurchaseAction(purchaseId: string): Promise<{ ok: 
   const session = getSession();
   if (!session) return { ok: false };
 
-  const purchase = await prisma.purchase.findFirst({ where: { id: purchaseId, businessId: session.businessId } });
-  if (!purchase || purchase.voidedAt || purchase.finalizedAt) return { ok: false };
+  // Atomic compare-and-set, NOT read-then-write. The auto-finalize timer and
+  // a staff member tapping Undo can land at the same instant; with a
+  // separate check and update, both could pass their checks and we'd text a
+  // customer "you earned a reward" for a purchase that was just reversed,
+  // linking to an Offer that undoPurchaseAction had already voided.
+  // Folding the guard into the WHERE clause means exactly one of the two
+  // wins: whoever updates 0 rows lost and must not send anything.
+  const claimed = await prisma.purchase.updateMany({
+    where: { id: purchaseId, businessId: session.businessId, finalizedAt: null, voidedAt: null },
+    data: { finalizedAt: new Date() },
+  });
+  if (claimed.count === 0) return { ok: false };
 
-  await prisma.purchase.update({ where: { id: purchaseId }, data: { finalizedAt: new Date() } });
   await sendPurchaseSms(purchaseId, session);
   return { ok: true };
 }
@@ -376,8 +385,21 @@ export async function undoPurchaseAction(purchaseId: string): Promise<{ ok: bool
   if (!session) return { ok: false };
 
   const result = await prisma.$transaction(async (tx) => {
-    const purchase = await tx.purchase.findFirst({ where: { id: purchaseId, businessId: session.businessId } });
-    if (!purchase || purchase.voidedAt || purchase.finalizedAt) return false;
+    // Claim the purchase atomically, mirroring finalizePurchaseAction's
+    // compare-and-set. Reading finalizedAt and then writing voidedAt as two
+    // steps would let a concurrent finalize slip between them, so both the
+    // undo and the SMS could happen for the same purchase. Guarding on
+    // finalizedAt/voidedAt inside the WHERE means exactly one of the two
+    // paths ever takes effect.
+    const claimed = await tx.purchase.updateMany({
+      where: { id: purchaseId, businessId: session.businessId, finalizedAt: null, voidedAt: null },
+      data: { voidedAt: new Date() },
+    });
+    if (claimed.count === 0) return false;
+
+    const purchase = await tx.purchase.findFirstOrThrow({
+      where: { id: purchaseId, businessId: session.businessId },
+    });
 
     // Row lock even though we're restoring fixed snapshot values, not
     // computing from current state — keeps this consistent with a
@@ -389,8 +411,6 @@ export async function undoPurchaseAction(purchaseId: string): Promise<{ ok: bool
       FOR UPDATE
     `;
     if (!rows[0]) return false;
-
-    await tx.purchase.update({ where: { id: purchaseId }, data: { voidedAt: new Date() } });
 
     if (purchase.rewardOfferId) {
       await tx.offer.updateMany({
