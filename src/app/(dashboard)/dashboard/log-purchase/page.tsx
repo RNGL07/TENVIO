@@ -22,13 +22,21 @@ export default async function LogPurchasePage({
     ? await prisma.customer.findFirst({ where: { id: searchParams.customer, businessId: business.id } })
     : null;
 
+  const activityNoun = program.earningMode === "PER_UNIT" ? "purchase" : "visit";
+
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-extrabold text-ink tracking-tight mb-1">Log a purchase</h1>
-      <p className="text-fade text-sm mb-6">
-        {program.earningMode === "PER_UNIT" ? `Get ${program.purchasesRequired}` : `Visit ${program.purchasesRequired} times`}
-        , get {program.rewardDescription.toLowerCase()}.
-      </p>
+      {/* Deliberately compact: this is the screen staff use with a customer
+          standing in front of them, so the header gives up as little
+          vertical space as possible and Scan Mode sits near the top of the
+          viewport on a phone. See CLAUDE.md section 26. */}
+      <div className="mb-4">
+        <h1 className="text-2xl font-extrabold text-ink tracking-tight">Log a {activityNoun}</h1>
+        <p className="text-fade text-sm mt-0.5">
+          {program.earningMode === "PER_UNIT" ? `Get ${program.purchasesRequired}` : `Visit ${program.purchasesRequired} times`}
+          , get {program.rewardDescription.toLowerCase()}.
+        </p>
+      </div>
 
       {searchParams.error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2.5 mb-5">
@@ -65,11 +73,17 @@ export default async function LogPurchasePage({
 
       <LogPurchaseScanPanel earningMode={program.earningMode} />
 
+      <div className="flex items-center gap-3 mb-4">
+        <span className="h-px flex-1 bg-sand" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-fade">or look up by phone</span>
+        <span className="h-px flex-1 bg-sand" />
+      </div>
+
       <Card className="mb-6">
-        <CardContent className="p-6">
+        <CardContent className="p-5">
           <Label htmlFor="phoneNumber">Customer phone number</Label>
-          <form action={findOrCreateCustomerAction} className="flex gap-2">
-            <div className="relative flex-1">
+          <form action={findOrCreateCustomerAction} className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1 min-w-0">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-fade">
                 <PhoneIcon className="w-4 h-4" />
               </span>
@@ -77,14 +91,15 @@ export default async function LogPurchasePage({
                 id="phoneNumber"
                 name="phoneNumber"
                 required
-                autoFocus
+                type="tel"
+                inputMode="tel"
                 placeholder="(555) 123-4567"
                 className="pl-10"
                 defaultValue={customer ? formatPhone(customer.phoneNumber) : ""}
               />
             </div>
             <input type="hidden" name="firstName" value="" />
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="secondary" className="sm:w-auto w-full">
               Find
             </Button>
           </form>
@@ -94,13 +109,13 @@ export default async function LogPurchasePage({
 
       {customer && (
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-5">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3 mb-5 min-w-0">
               <div className="w-10 h-10 rounded-full bg-brand-500/15 text-brand-700 font-bold flex items-center justify-center text-sm shrink-0">
                 {initials(customer.firstName, customer.phoneNumber)}
               </div>
-              <div>
-                <div className="text-ink font-semibold">{customer.firstName || "Unnamed customer"}</div>
+              <div className="min-w-0">
+                <div className="text-ink font-semibold break-words">{customer.firstName || "Unnamed customer"}</div>
                 <div className="text-fade text-xs">{formatPhone(customer.phoneNumber)}</div>
               </div>
             </div>
@@ -120,7 +135,7 @@ export default async function LogPurchasePage({
                 </div>
               )}
               <Button type="submit" className="w-full">
-                Add Purchase
+                Add {activityNoun === "visit" ? "Visit" : "Purchase"}
               </Button>
             </form>
           </CardContent>

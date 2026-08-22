@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,8 +28,11 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-extrabold text-ink tracking-tight">{campaign.name}</h1>
-        <p className="text-fade text-sm mt-0.5">
+        <Link href="/dashboard/campaigns" className="text-xs text-fade hover:text-ink">
+          ← All campaigns
+        </Link>
+        <h1 className="text-2xl font-extrabold text-ink tracking-tight mt-1 break-words">{campaign.name}</h1>
+        <p className="text-fade text-sm mt-0.5 break-words">
           {campaign.sentAt ? formatDateTime(campaign.sentAt) : "Draft"}
           {campaign.offerDescription ? ` · ${campaign.offerDescription}` : ""}
           {isSimulated && (
@@ -76,16 +80,26 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
         {campaign.recipients.map((r) => {
           const offer = campaign.offers.find((o) => o.customerId === r.customerId);
           return (
-            <div key={r.id} className="px-4 py-3 flex items-center justify-between text-sm">
-              <span className="text-ink">{r.customer.firstName || formatPhone(r.customer.phoneNumber)}</span>
+            <Link
+              key={r.id}
+              href={`/dashboard/customers/${r.customerId}`}
+              className="px-4 py-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm hover:bg-black/[0.015] min-w-0"
+            >
+              <span className="text-ink break-words min-w-0">
+                {r.customer.firstName || formatPhone(r.customer.phoneNumber)}
+              </span>
+              {/* Only a campaign that attached an offer has anything to
+                  redeem — a plain message campaign shows delivery only,
+                  rather than a "Sent" badge implying a redemption that was
+                  never possible. */}
               {offer?.redemption ? (
                 <Badge tone="green">Redeemed</Badge>
               ) : offer ? (
-                <Badge tone="neutral">Sent</Badge>
+                <Badge tone="orange">Offer sent</Badge>
               ) : (
-                <Badge tone="neutral">Sent</Badge>
+                <Badge tone="neutral">Delivered</Badge>
               )}
-            </div>
+            </Link>
           );
         })}
         {campaign.recipients.length === 0 && (

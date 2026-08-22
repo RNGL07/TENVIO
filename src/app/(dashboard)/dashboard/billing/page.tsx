@@ -76,6 +76,13 @@ export default async function BillingPage({
     <div className="max-w-lg space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold text-ink tracking-tight">Billing</h1>
+        <p className="text-fade text-sm mt-0.5">
+          {isTrial && trialDaysLeft > 0
+            ? `You're on a free trial with ${trialDaysLeft} ${trialDaysLeft === 1 ? "day" : "days"} left.`
+            : access === "FULL"
+              ? "Your Tenvio subscription and payment details."
+              : "Your account needs attention to restore full access."}
+        </p>
       </div>
 
       {access === "RESTRICTED" && (
@@ -107,18 +114,18 @@ export default async function BillingPage({
 
       <Card>
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <span className="text-sm font-semibold text-ink">Status</span>
             <Badge tone={access === "FULL" ? "green" : "red"}>{statusLabel}</Badge>
           </div>
 
           {isTrial && (
             <>
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
                 <span className="text-fade">Trial ends</span>
                 <span className="text-ink font-medium">{formatDate(subscription!.trialEndsAt)}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
                 <span className="text-fade">Days left</span>
                 <span className="text-ink font-medium">
                   {trialDaysLeft} {trialDaysLeft === 1 ? "day" : "days"}
@@ -128,14 +135,14 @@ export default async function BillingPage({
           )}
 
           {subscription?.status === "CANCELING" && (
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
               <span className="text-fade">Access ends</span>
               <span className="text-ink font-medium">{formatDate(subscription.currentPeriodEnd)}</span>
             </div>
           )}
 
           {subscription?.status === "COMPED" && (
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
               <span className="text-fade">Comped until</span>
               <span className="text-ink font-medium">
                 {subscription.compedUntil ? formatDate(subscription.compedUntil) : "Indefinite"}
@@ -144,7 +151,7 @@ export default async function BillingPage({
           )}
 
           {subscription?.plan && (
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
               <span className="text-fade">Plan</span>
               <span className="text-ink font-medium">
                 {subscription.plan.name} — ${(subscription.plan.amountCents / 100).toFixed(0)}/

@@ -28,6 +28,7 @@ export default async function SettingsPage({
     <div className="max-w-lg space-y-8">
       <div>
         <h1 className="text-2xl font-extrabold text-ink tracking-tight">Settings</h1>
+        <p className="text-fade text-sm mt-0.5">Your business details, how customers earn rewards, and which texts go out.</p>
       </div>
 
       {searchParams.saved && SAVED_LABEL[searchParams.saved] && (
@@ -175,8 +176,11 @@ export default async function SettingsPage({
       <section>
         <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-3">Account</p>
         <Card>
-          <CardContent className="p-6 flex items-center justify-between">
-            <span className="text-sm text-ink">{user.email}</span>
+          <CardContent className="p-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm text-ink break-words">{user.email}</div>
+              <div className="text-xs text-fade mt-0.5">Signed in as owner</div>
+            </div>
             <form action={logOutAction}>
               <Button type="submit" variant="secondary" size="sm">Log out</Button>
             </form>
