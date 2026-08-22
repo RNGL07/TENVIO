@@ -133,9 +133,9 @@ export default async function CustomerProfilePage({ params }: { params: { id: st
             <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-4">Activity</p>
             <div className="space-y-0">
               {activity.map((item, i) => (
-                <div key={i} className="flex gap-3 py-2.5 border-b border-sand last:border-0 text-sm">
-                  <span className="text-fade text-xs w-28 shrink-0 pt-0.5">{formatDateTime(item.at)}</span>
-                  <div>
+                <div key={i} className="flex flex-col sm:flex-row gap-0.5 sm:gap-3 py-2.5 border-b border-sand last:border-0 text-sm">
+                  <span className="text-fade text-xs sm:w-28 shrink-0 sm:pt-0.5 order-2 sm:order-1">{formatDateTime(item.at)}</span>
+                  <div className="order-1 sm:order-2">
                     <div className="text-ink">{item.title}</div>
                     {item.subtitle && <div className="text-fade text-xs mt-0.5">{item.subtitle}</div>}
                   </div>
