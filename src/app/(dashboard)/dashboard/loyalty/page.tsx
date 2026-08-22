@@ -33,8 +33,14 @@ export default async function LoyaltyPage() {
         <Card>
           <CardContent className="p-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-3">{business.name} Rewards</p>
+            {/* Never hardcode an industry noun here ("coffees") — Tenvio runs
+                food, beauty, and fitness businesses off this same page, and
+                the earning mode decides whether progress counts visits or
+                individual items. See section 5 in CLAUDE.md. */}
             <p className="text-2xl font-extrabold text-ink mb-1">
-              Buy {program.purchasesRequired} coffees
+              {program.earningMode === "PER_UNIT"
+                ? `Buy ${program.purchasesRequired} items`
+                : `Visit ${program.purchasesRequired} times`}
             </p>
             <p className="text-fade text-sm mb-6">
               Get: <span className="text-ink font-semibold">{program.rewardDescription}</span>
