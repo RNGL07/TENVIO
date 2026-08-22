@@ -9,6 +9,7 @@ import { getBusinessAccess } from "@/lib/access";
 import { sendSms } from "@/lib/sms";
 import { generateOfferToken, generateShortCode, offerExpiryDate } from "@/lib/redemption";
 import { calculateLoyaltyProgress, isWithinCooldown } from "@/lib/loyalty";
+import { advanceChallenges, reverseChallenges } from "@/lib/challenges";
 
 interface CustomerRow {
   id: string;
@@ -19,6 +20,12 @@ interface CustomerRow {
   totalVisits: number;
   lifetimeRewards: number;
   oneAwayNotifiedAt: Date | null;
+}
+
+export interface CompletedChallenge {
+  challengeName: string;
+  rewardDescription: string;
+  offerToken: string;
 }
 
 export type CreatePurchaseResult =
@@ -32,6 +39,9 @@ export type CreatePurchaseResult =
       rewardEarned: boolean;
       oneAway: boolean;
       rewardDescription: string;
+      /** Phase N — challenges finished by this interaction, so Scan Mode can
+       * tell staff to hand something over on the spot. Usually empty. */
+      completedChallenges: CompletedChallenge[];
     }
   | { ok: false; reason: "not_found" | "restricted" | "cooldown"; secondsAgo?: number };
 
@@ -150,8 +160,21 @@ async function createPurchaseCore(
         },
       });
 
+      // Phase N — challenges advance alongside the loyalty program, not
+      // instead of it, so one logged activity can both move loyalty
+      // progress and complete a challenge. Inside this transaction on
+      // purpose: challenge progress must roll back with the Purchase if
+      // anything here fails, or an undone scan would leave phantom
+      // progress behind.
+      const challengeResult = await advanceChallenges(tx, {
+        businessId: session.businessId,
+        customerId: customer.id,
+        increment: progress.increment,
+      });
+
       return {
         ok: true as const,
+        completedChallenges: challengeResult.completed,
         purchaseId: purchase.id,
         customerId: customer.id,
         customerName: customer.firstName || customer.phoneNumber,
@@ -201,6 +224,11 @@ async function createPurchaseCore(
           rewardEarned: false,
           oneAway: false,
           rewardDescription: program.rewardDescription,
+          // Empty by design: this is the duplicate-submit replay path, and
+          // the original request already reported (and already awarded) any
+          // completed challenges. Re-listing them here would tell staff to
+          // hand over a second reward for one interaction.
+          completedChallenges: [],
         };
       }
     }
@@ -418,6 +446,19 @@ export async function undoPurchaseAction(purchaseId: string): Promise<{ ok: bool
         data: { voidedAt: new Date() },
       });
     }
+
+    // Phase N — unwind challenge progress too, or an undone scan would
+    // leave the customer permanently closer to (or falsely past) a goal.
+    // The increment is recomputed the same way createPurchaseCore derived
+    // it, since PER_VISIT always counts 1 regardless of quantity.
+    const undoProgram = await tx.loyaltyProgram.findUniqueOrThrow({
+      where: { businessId: session.businessId },
+    });
+    await reverseChallenges(tx, {
+      businessId: session.businessId,
+      customerId: purchase.customerId,
+      increment: undoProgram.earningMode === "PER_VISIT" ? 1 : Math.max(1, purchase.quantity),
+    });
 
     await tx.customer.update({
       where: { id: purchase.customerId },

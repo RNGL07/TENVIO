@@ -23,6 +23,8 @@ enum UserRole {
 enum OfferSource {
   LOYALTY_REWARD
   CAMPAIGN_PROMO
+  MANUAL         // Phase M — owner sent this reward by hand
+  CHALLENGE      // Phase N — awarded for completing a challenge
 }
 
 enum MessageType {
@@ -122,12 +124,58 @@ enum LoyaltyEarningMode {
   PER_SPEND  // reserved, not implemented
 }
 
+// Phase L. Drives merchant-facing TERMINOLOGY ONLY — never behavior. The
+// loyalty engine, scanning, rewards, and campaigns are identical across
+// every industry; this only decides whether staff see "Log Purchase",
+// "Log Visit", or "Log Check-in", and whether people are called customers,
+// clients, or members. See src/lib/terminology.ts, the single place these
+// labels are resolved. Deliberately NOT branched on anywhere in
+// purchase-actions/loyalty logic — the moment industry changes behavior,
+// Tenvio becomes three products instead of one (CLAUDE.md section 5).
+enum Industry {
+  FOOD_BEVERAGE
+  BEAUTY
+  FITNESS
+  OTHER
+}
+
+// Phase M. What a reward actually gives the customer. FREE_ITEM is the
+// V1 behavior and stays the default so every existing Offer keeps its
+// meaning. `rewardValue` carries the number for the types that need one
+// (cents for DOLLAR_DISCOUNT, whole percent for PERCENT_DISCOUNT) and is
+// null for the rest — see the Offer model.
+enum RewardType {
+  FREE_ITEM
+  FREE_SERVICE
+  FREE_CLASS
+  DOLLAR_DISCOUNT
+  PERCENT_DISCOUNT
+  GUEST_PASS
+  CUSTOM
+}
+
+// Phase M. Why a reward was issued by hand, for merchant reporting. Only
+// set on manually-sent rewards; loyalty/campaign offers leave it null.
+enum ManualRewardReason {
+  BIRTHDAY
+  APPRECIATION
+  SERVICE_RECOVERY
+  PROMOTION
+  REFERRAL
+  OTHER
+}
+
 model Business {
   id         String   @id @default(cuid())
   name       String
   slug       String   @unique
   location   String?
   createdAt  DateTime @default(now())
+
+  // Phase L — presentation only, see the Industry enum comment. Defaults to
+  // FOOD_BEVERAGE so every business that existed before this column keeps
+  // the exact wording it already had.
+  industry   Industry @default(FOOD_BEVERAGE)
 
   // V1 sends every business's texts from ONE shared Twilio number
   // (TWILIO_PHONE_NUMBER env var) — this column exists so a future version
@@ -156,6 +204,7 @@ model Business {
   subscription   Subscription?
   cancellations  Cancellation[]
   adminAuditLogs AdminAuditLog[]
+  challenges     Challenge[]
 }
 
 model User {
@@ -228,6 +277,7 @@ model Customer {
   offers             Offer[]
   campaignRecipients CampaignRecipient[]
   messages           Message[]
+  challengeProgress  ChallengeProgress[]
 
   @@unique([businessId, phoneNumber])
   @@index([businessId])
@@ -314,6 +364,22 @@ model Offer {
   source      OfferSource
   description String      // e.g. "Free Coffee" or "$1 Off Any Latte"
 
+  // Phase M. `description` stays the human string shown everywhere (and
+  // remains the source of truth for display); these add machine-readable
+  // structure so the Rewards Wallet can render a reward consistently and
+  // future reporting can group by type. FREE_ITEM default keeps every
+  // pre-existing Offer meaning exactly what it did before.
+  rewardType  RewardType  @default(FREE_ITEM)
+  // Cents for DOLLAR_DISCOUNT, whole percent for PERCENT_DISCOUNT, null for
+  // every other type. Deliberately one nullable Int rather than two columns
+  // — a reward is never both a dollar and a percent discount.
+  rewardValue Int?
+
+  // Set only when an owner sends a reward by hand (Phase M "Send Reward"),
+  // for merchant-side reporting on why comps go out. Null for loyalty and
+  // campaign offers, which already carry that meaning in `source`.
+  manualReason ManualRewardReason?
+
   // Long opaque random string, encoded into the QR / redemption link.
   token       String      @unique
   // Short numeric fallback for manual entry at the register.
@@ -332,6 +398,66 @@ model Offer {
 
   @@unique([businessId, shortCode])
   @@index([businessId])
+  @@index([customerId])
+}
+
+// Phase N. A time-boxed goal ("complete 12 classes in August, get one
+// free") that runs ALONGSIDE the normal loyalty program rather than
+// replacing it — a single logged activity advances both, independently.
+// Deliberately generic: the engine counts qualifying activities, and the
+// industry only changes what those are called (see the Industry enum).
+model Challenge {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+
+  name        String   // "August Pilates Challenge"
+  description String?
+  // How many qualifying activities complete the challenge.
+  targetCount Int
+  // What they get. Same free-text shape as LoyaltyProgram.rewardDescription
+  // so the reward Offer it issues reads identically to a loyalty one.
+  rewardDescription String
+  rewardType  RewardType @default(FREE_ITEM)
+
+  // A challenge only counts activity logged inside its window. endsAt is
+  // required — an open-ended "challenge" is just the loyalty program, and
+  // the whole point of this feature is the deadline creating urgency.
+  startsAt    DateTime
+  endsAt      DateTime
+
+  // Lets an owner stop a challenge early without deleting its history.
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  progress    ChallengeProgress[]
+
+  @@index([businessId])
+}
+
+// One row per customer per challenge, created lazily the first time that
+// customer logs a qualifying activity while the challenge is running.
+model ChallengeProgress {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+
+  count       Int       @default(0)
+  // Set once when count first reaches targetCount, and never recomputed —
+  // it's what stops a completed challenge from issuing a second reward if
+  // the customer keeps logging activity before the window closes.
+  completedAt DateTime?
+  // The reward Offer issued on completion, so it's traceable back here.
+  rewardOfferId String?
+
+  updatedAt   DateTime  @updatedAt
+
+  // DB-level guarantee of one progress row per customer per challenge —
+  // the same guarantee OfferRedemption.offerId gives redemptions, and it's
+  // what makes the concurrent-scan upsert safe.
+  @@unique([challengeId, customerId])
   @@index([customerId])
 }
 
