@@ -170,10 +170,25 @@ async function createPurchaseCore(
       // exact return value anymore, so this re-derives from current state —
       // a reasonable approximation for what should be a rare path, not a
       // byte-for-byte replay.
-      const existing = await prisma.purchase.findUnique({ where: { idempotencyKey } });
+      //
+      // BOTH lookups below are businessId-scoped, and that is a security
+      // boundary, not defensive style: idempotencyKey is supplied by the
+      // CLIENT and is unique globally, not per-business. An unscoped
+      // findUnique here would return another business's Purchase on a key
+      // collision, and the unscoped customer fetch that followed would then
+      // leak that business's customer name and phone number back to the
+      // caller. Scoping means a key belonging to another business simply
+      // doesn't match, and we fall through to rethrowing — a failed write
+      // reported as a failure, rather than a silent success carrying
+      // someone else's data.
+      const existing = await prisma.purchase.findFirst({
+        where: { idempotencyKey, businessId: session.businessId },
+      });
       if (existing) {
         const [customer, program] = await Promise.all([
-          prisma.customer.findUniqueOrThrow({ where: { id: existing.customerId } }),
+          prisma.customer.findFirstOrThrow({
+            where: { id: existing.customerId, businessId: session.businessId },
+          }),
           prisma.loyaltyProgram.findUniqueOrThrow({ where: { businessId: session.businessId } }),
         ]);
         return {
