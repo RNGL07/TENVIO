@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import type { SubscriptionStatus } from "@prisma/client";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/db";
 import { logAdminAction } from "@/lib/admin-audit";
@@ -103,7 +104,15 @@ export async function uncompBusinessAction(formData: FormData) {
   if (!subscription) redirect("/admin/businesses");
 
   const hasTrialTimeLeft = Boolean(subscription.trialEndsAt && subscription.trialEndsAt.getTime() > Date.now());
-  const nextStatus = subscription.stripeSubscriptionId ? "ACTIVE" : hasTrialTimeLeft ? "TRIAL" : "CANCELED";
+  // Explicit annotation, not inferred — a bare ternary of string literals
+  // widens to `string`, which Prisma's typed `status` field rejects (this
+  // exact class of mistake broke the build once already this session, in
+  // admin-audit.ts's metadata field).
+  const nextStatus: SubscriptionStatus = subscription.stripeSubscriptionId
+    ? "ACTIVE"
+    : hasTrialTimeLeft
+      ? "TRIAL"
+      : "CANCELED";
 
   await prisma.subscription.update({
     where: { businessId },

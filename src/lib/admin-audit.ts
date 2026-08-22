@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 
 /** Records a sensitive admin action. `action` is a plain string constant on
@@ -11,7 +12,7 @@ export async function logAdminAction(params: {
   businessId?: string;
   action: string;
   reason?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, string | number | boolean | null>;
 }) {
   await prisma.adminAuditLog.create({
     data: {
@@ -19,7 +20,7 @@ export async function logAdminAction(params: {
       businessId: params.businessId,
       action: params.action,
       reason: params.reason,
-      metadata: params.metadata,
+      metadata: params.metadata as Prisma.InputJsonValue | undefined,
     },
   });
 }
