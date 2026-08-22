@@ -17,8 +17,8 @@ import { FINALIZE_WINDOW_MS, type LoyaltyEarningMode } from "@/lib/loyalty";
 type SuccessResult = Extract<CreatePurchaseResult, { ok: true }>;
 
 type PanelState =
-  | { phase: "idle" }
-  | { phase: "scanning" }
+  | { phase: "off" }
+  | { phase: "ready" }
   | { phase: "resolving" }
   | { phase: "choosing_quantity"; token: string; customerId: string; customerName: string }
   | { phase: "creating" }
@@ -30,11 +30,13 @@ type PanelState =
 const QUANTITY_OPTIONS = [1, 2, 3];
 
 /**
- * "Scan Card" — Scan Mode for /dashboard/log-purchase. Stays on this one
- * screen for the whole scan -> identify -> (quantity, PER_UNIT only) -> log
- * -> success -> Undo-or-finalize -> ready-for-next-customer loop, with no
- * route change and (after the first "Start Scanning" tap) no further taps
- * required for the common PER_VISIT case.
+ * Scan Mode for /dashboard/log-purchase. Staff tap "Start Scanning" ONCE —
+ * the camera then stays live for the whole session (see the persistence
+ * design in qr-scanner.tsx), cycling through
+ * ready -> (resolve/quantity, PER_UNIT only) -> create -> success/cooldown
+ * -> back to ready, with no route change and no re-tapping "Start Scanning"
+ * between customers. Only an explicit "Exit Scan Mode" tap turns the camera
+ * off.
  *
  * The actual write (createPurchaseByTokenAction) happens immediately on
  * scan/quantity-pick — SMS is what's deferred, via a short client-held
@@ -43,7 +45,7 @@ const QUANTITY_OPTIONS = [1, 2, 3];
  * needed no new backend infrastructure.
  */
 export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarningMode }) {
-  const [state, setState] = useState<PanelState>({ phase: "idle" });
+  const [state, setState] = useState<PanelState>({ phase: "off" });
   const finalizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -76,7 +78,7 @@ export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarn
     setState({ phase: "success", result });
     finalizeTimer.current = setTimeout(async () => {
       await finalizePurchaseAction(result.purchaseId);
-      setState({ phase: "idle" });
+      setState({ phase: "ready" });
     }, FINALIZE_WINDOW_MS);
   }
 
@@ -99,7 +101,7 @@ export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarn
     clearFinalizeTimer();
     await undoPurchaseAction(purchaseId);
     setState({ phase: "undone" });
-    setTimeout(() => setState({ phase: "idle" }), 1500);
+    setTimeout(() => setState({ phase: "ready" }), 1500);
   }
 
   /** Lets staff skip the rest of the countdown and move to the next
@@ -109,42 +111,50 @@ export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarn
   async function handleDone(purchaseId: string) {
     clearFinalizeTimer();
     await finalizePurchaseAction(purchaseId);
-    setState({ phase: "idle" });
+    setState({ phase: "ready" });
   }
 
-  const scanning = state.phase === "scanning";
-  const busy = state.phase === "resolving" || state.phase === "creating";
+  const scanModeOn = state.phase !== "off";
+  const cameraPaused = state.phase !== "ready";
 
   return (
     <Card className="mb-6">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-1">
-          <p className="font-semibold text-ink text-sm">Scan customer card</p>
-          {state.phase === "idle" && (
-            <Button type="button" variant="secondary" size="sm" onClick={() => setState({ phase: "scanning" })}>
+          <p className="font-semibold text-ink text-sm">Scan Mode</p>
+          {state.phase === "off" ? (
+            <Button type="button" variant="secondary" size="sm" onClick={() => setState({ phase: "ready" })}>
               Start Scanning
             </Button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setState({ phase: "off" })}
+              className="text-xs font-semibold text-fade hover:text-ink underline"
+            >
+              Exit Scan Mode
+            </button>
           )}
         </div>
-        {state.phase === "idle" && (
+        {state.phase === "off" && (
           <p className="text-xs text-fade mb-3">
-            Fastest way to log a visit — no typing. Ask the customer to pull up their card, then scan it.
+            Fastest way to log a visit — no typing. Ask the customer to pull up their card, then scan it. The camera
+            stays on between customers until you exit.
           </p>
         )}
 
-        {scanning && (
-          <div>
-            <QrScanner onToken={handleToken} />
-            <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => setState({ phase: "idle" })}>
-              Cancel
-            </Button>
-          </div>
+        {scanModeOn && <QrScanner onToken={handleToken} paused={cameraPaused} />}
+
+        {state.phase === "ready" && (
+          <p className="text-sm text-fade text-center mt-2">Ready to scan.</p>
         )}
 
-        {busy && <p className="text-sm text-fade">{state.phase === "resolving" ? "Looking up card…" : "Logging…"}</p>}
+        {(state.phase === "resolving" || state.phase === "creating") && (
+          <p className="text-sm text-fade text-center mt-2">{state.phase === "resolving" ? "Looking up card…" : "Logging…"}</p>
+        )}
 
         {state.phase === "choosing_quantity" && (
-          <div>
+          <div className="mt-2">
             <p className="text-sm text-ink font-medium mb-2">✓ {state.customerName} identified</p>
             <p className="text-xs text-fade mb-2">How many qualify?</p>
             <div className="flex gap-2">
@@ -170,7 +180,7 @@ export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarn
         )}
 
         {state.phase === "cooldown" && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
             <p className="text-sm text-ink mb-2">
               This customer was already logged {state.secondsAgo ?? "a few"}s ago — log it anyway?
             </p>
@@ -178,7 +188,7 @@ export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarn
               <Button type="button" size="sm" onClick={() => submitPurchase(state.token, state.quantity, true)}>
                 Log anyway
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setState({ phase: "idle" })}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setState({ phase: "ready" })}>
                 Cancel
               </Button>
             </div>
@@ -186,18 +196,18 @@ export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarn
         )}
 
         {state.phase === "not_found" && (
-          <div>
+          <div className="mt-2">
             <p className="text-red-700 text-sm mb-2">
               That card isn&apos;t recognized here — it may be from a different business. Try the phone number below instead.
             </p>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setState({ phase: "idle" })}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setState({ phase: "ready" })}>
               Dismiss
             </Button>
           </div>
         )}
 
         {state.phase === "success" && (
-          <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl p-4">
+          <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl p-4 mt-2">
             <span className="text-emerald-600 mt-0.5">
               <CheckCircleIcon className="w-5 h-5" />
             </span>
@@ -233,7 +243,7 @@ export function LogPurchaseScanPanel({ earningMode }: { earningMode: LoyaltyEarn
           </div>
         )}
 
-        {state.phase === "undone" && <p className="text-sm text-fade">Undone — ready for next scan.</p>}
+        {state.phase === "undone" && <p className="text-sm text-fade text-center mt-2">Undone — ready for next scan.</p>}
       </CardContent>
     </Card>
   );
