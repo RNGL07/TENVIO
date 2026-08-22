@@ -82,7 +82,10 @@ export function CampaignForm({
 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide mb-1.5 text-fade">Preview</p>
-          <div className="bg-cream border border-sand rounded-lg px-3.5 py-2.5 text-sm text-ink whitespace-pre-wrap min-h-[2.5rem]">
+          {/* break-words matters here specifically: the preview renders the
+              full redemption URL (a ~43-char unbreakable token), which
+              would otherwise push the page wider than a phone screen. */}
+          <div className="bg-cream border border-sand rounded-lg px-3.5 py-2.5 text-sm text-ink whitespace-pre-wrap break-words min-h-[2.5rem]">
             {previewText || <span className="text-fade">Your message will appear here as you type.</span>}
           </div>
           <p className="text-xs text-fade mt-1.5">

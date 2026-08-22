@@ -68,7 +68,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
 
       <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-3">Message</p>
       <Card className="mb-8">
-        <CardContent className="p-5 text-sm text-ink">{campaign.messageBody}</CardContent>
+        <CardContent className="p-5 text-sm text-ink break-words">{campaign.messageBody}</CardContent>
       </Card>
 
       <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-3">Recipients</p>

@@ -212,8 +212,13 @@ export default async function OverviewPage() {
         )
       )}
 
+      {/* min-w-0 on every grid child is load-bearing, not cosmetic: a grid
+          item defaults to min-width:auto, so it refuses to shrink below its
+          content. One long unbreakable string (a reward URL in a message
+          body) then widens the whole grid past the viewport, and mobile
+          browsers respond by zooming the entire page out to fit. */}
       <div className="grid md:grid-cols-3 gap-6">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-3">Loyalty Activity</p>
           <Card>
             <CardContent className="p-0 divide-y divide-sand">
@@ -241,7 +246,7 @@ export default async function OverviewPage() {
           </Card>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-3">Recent Customers</p>
           <Card>
             <CardContent className="p-0 divide-y divide-sand">
@@ -269,7 +274,7 @@ export default async function OverviewPage() {
           </Card>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-3">Recent Messages</p>
           <Card>
             <CardContent className="p-0 divide-y divide-sand">

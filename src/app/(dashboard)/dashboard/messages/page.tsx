@@ -66,12 +66,16 @@ export default async function MessagesPage({ searchParams }: { searchParams: { t
         </div>
         <div className="divide-y divide-sand">
           {messages.map((m) => (
-            <div key={m.id} className="px-4 py-3 md:grid md:grid-cols-[1fr_2fr_0.7fr_0.7fr_0.9fr] md:items-center gap-1 md:gap-3">
+            <div key={m.id} className="px-4 py-3 md:grid md:grid-cols-[1fr_2fr_0.7fr_0.7fr_0.9fr] md:items-center gap-1 md:gap-3 min-w-0">
               <div className="flex items-center justify-between md:block">
                 <span className="text-ink font-medium md:font-normal">{m.customer.firstName || formatPhone(m.customer.phoneNumber)}</span>
                 <span className="text-fade text-xs md:hidden">{formatDateTime(m.createdAt)}</span>
               </div>
-              <div className="text-ink text-sm mt-1.5 md:mt-0 md:truncate">{m.body}</div>
+              {/* break-words is required, not defensive: message bodies
+                  contain reward links with no spaces, and an unbreakable
+                  token that long overflows the viewport on a phone even
+                  with normal wrapping. */}
+              <div className="text-ink text-sm mt-1.5 md:mt-0 break-words md:truncate">{m.body}</div>
               <div className="hidden md:block text-fade text-sm">{TYPE_LABEL[m.type]}</div>
               <div className="flex items-center gap-2 mt-2 md:mt-0">
                 <span className="text-fade text-xs md:hidden">{TYPE_LABEL[m.type]}</span>
