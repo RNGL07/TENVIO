@@ -39,7 +39,10 @@ export default async function MessagesPage({ searchParams }: { searchParams: { t
         <p className="text-fade text-sm mt-0.5">Every text sent to a customer, in one place.</p>
       </div>
 
-      <div className="flex gap-2 mb-5">
+      {/* flex-wrap, not a fixed row: five filter chips don't fit across a
+          phone, and without wrapping the last one pushes the page wider
+          than the viewport (which zooms the whole page out on mobile). */}
+      <div className="flex flex-wrap gap-2 mb-5">
         {FILTERS.map((f) => (
           <Link
             key={f.label}
