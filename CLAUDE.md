@@ -1207,7 +1207,9 @@ Pages done and deployed:
 
 Also fixed in passing (real bugs, not redesigns): **Loyalty** page (`b0c9457`) was hardcoding "Buy N coffees" regardless of `earningMode` or business type — now reads the actual earning mode.
 
-Reviewed and left alone (no urgent structural issues found — not table-based, don't horizontally overflow, no hardcoded industry terms): Campaigns list, campaign detail. Still genuinely pending a look: Messages, Billing, Settings, Scan/Log Activity, redemption. Don't redo the pages already fixed above when picking these up.
+- **Remaining screens** (2026-08-21, commit `cb1729a`) — Campaigns list (summary stats, plus an empty state that adapts to whether the merchant actually has anyone to message yet), campaign detail (back link, recipients link through to the customer, "Delivered" vs "Offer sent" instead of a blanket "Sent" that implied a redemption which was never possible), Log Purchase/Scan (compact header so Scan Mode sits near the top of a phone viewport; dropped `autoFocus` on the phone field because it popped the mobile keyboard on load and buried the scanner — backwards when scanning is the primary action; `type/inputMode="tel"`), Billing and Settings (subheadings, wrapping label/value rows).
+
+**Phase E structural work is COMPLETE.** Every merchant screen has had a mobile/structure pass, and no route overflows at 430/390/375/320px (verified live, not assumed). What is deliberately NOT done is the *visual identity* pass — that's the Claude Design handoff. Treat the current look as a clean consistent base, not a finished design.
 
 **Mobile-first merchant design is a hard requirement of this phase, not an optional pass** — see section 26 in full before starting Phase E work: the desktop-vs-mobile task split, the Scan Mode vision, the current scan architecture's safety gaps (investigated 2026-08-21, do not enable immediate-log/Undo/Quick Scan Mode without addressing them first), PWA/future-native considerations, and the explicit per-screen breakpoint testing requirement (desktop/tablet/430/390/375/320 across every major screen).
 
@@ -1243,7 +1245,15 @@ Important caveat for interpreting this page: it only sees cancellations made thr
 
 ## Phase J — Admin Metrics & Reporting
 
-Basic version DONE on `/admin` — MRR (live-computed from real subscriptions, excludes COMPED per the "not paid MRR" rule), total businesses/customers, trials ending in 7 days, counts by subscription status. **Not done**: churn rate, cohort retention, ARPU, trend-over-time charts.
+DONE (commit `44e0ba1`). `/admin` shows MRR (excludes COMPED per the "not paid MRR" rule), total businesses/customers, trials ending in 7 days, counts by subscription status, plus trial→paid conversion, 30-day churn, ARPU, and new signups.
+
+Definitions worth preserving, since they're easy to get subtly wrong:
+- **Conversion** counts "ever attached a real Stripe subscription" — durable, so the rate can't silently improve as churned customers drop out of the numerator. Denominator is businesses that actually started a trial, so comped/founder-granted accounts that never had a card aren't scored as failed conversions.
+- **Churn** counts `Cancellation` records inside the window, not current status (status shows where an account landed, not that it churned *this* month), and excludes reactivated ones.
+- **ARPU** divides across paying accounts only — dividing by all businesses would deflate it with trials and comps.
+- Rates render `—`, never `0%`, when the denominator is empty, so missing data never reads as a real measurement.
+
+**Known imprecision, stated on the page itself**: churn's denominator approximates "already paying 30 days ago" from subscription creation dates, because there's no paying-account history table. Directional until volume is higher. **Still not done**: cohort retention, trend-over-time charts.
 
 ## Phase K — Full QA & Production Validation
 
