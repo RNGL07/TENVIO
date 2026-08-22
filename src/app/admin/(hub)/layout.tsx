@@ -25,6 +25,9 @@ export default async function AdminHubLayout({ children }: { children: React.Rea
               <Link href="/admin/businesses" className="text-white/70 hover:text-white">
                 Businesses
               </Link>
+              <Link href="/admin/plans" className="text-white/70 hover:text-white">
+                Plans
+              </Link>
               <Link href="/admin/cancellations" className="text-white/70 hover:text-white">
                 Cancellations
               </Link>

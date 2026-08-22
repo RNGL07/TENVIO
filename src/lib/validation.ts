@@ -73,6 +73,24 @@ export const cancelSubscriptionSchema = z.object({
   feedback: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 
+export const adminPlanSchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .regex(/^[a-z0-9_-]+$/, "Key must be lowercase letters, numbers, dashes or underscores"),
+  name: z.string().trim().min(2).max(80),
+  // Must be a real Stripe Price id — Tenvio never generates these itself,
+  // see the comment on createPlanAction.
+  stripePriceId: z
+    .string()
+    .trim()
+    .regex(/^price_[A-Za-z0-9]+$/, "That doesn't look like a Stripe Price ID (should start with price_)"),
+  amountDollars: z.coerce.number().positive().max(10000),
+  trialDays: z.coerce.number().int().min(0).max(365),
+});
+
 export const settingsMessagingSchema = z.object({
   welcomeSmsEnabled: z.boolean(),
   oneAwaySmsEnabled: z.boolean(),

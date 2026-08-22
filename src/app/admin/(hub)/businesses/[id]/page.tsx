@@ -11,6 +11,8 @@ import {
   reactivateBusinessAction,
   compBusinessAction,
   uncompBusinessAction,
+  adminCancelBusinessAction,
+  terminateBusinessAction,
 } from "@/actions/admin-actions";
 
 const DONE_LABEL: Record<string, string> = {
@@ -18,6 +20,8 @@ const DONE_LABEL: Record<string, string> = {
   reactivated: "Restriction cleared.",
   comped: "Account comped.",
   uncomped: "Comp removed.",
+  admin_canceled: "Subscription set to cancel at period end.",
+  terminated: "Account terminated. Billing ended immediately and access is locked.",
 };
 
 const CANCEL_REASON_LABEL: Record<string, string> = {
@@ -217,6 +221,60 @@ export default async function AdminBusinessDetailPage({
                 </Button>
               </form>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-5 mb-6">
+        <Card>
+          <CardContent className="p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-fade mb-3">Cancel subscription</p>
+            {subscription?.status === "CANCELING" ? (
+              <p className="text-sm text-fade">
+                Already set to cancel
+                {subscription.currentPeriodEnd ? ` on ${subscription.currentPeriodEnd.toLocaleDateString()}` : ""}.
+              </p>
+            ) : !subscription?.stripeSubscriptionId ? (
+              <p className="text-sm text-fade">No active Stripe subscription to cancel.</p>
+            ) : (
+              <form action={adminCancelBusinessAction} className="space-y-3">
+                <input type="hidden" name="businessId" value={business.id} />
+                <p className="text-xs text-fade">
+                  Cancels at period end, same as the merchant&apos;s own flow — they keep access they paid for.
+                </p>
+                <div>
+                  <Label htmlFor="cancel-reason">Reason (required, internal only)</Label>
+                  <Input id="cancel-reason" name="reason" required placeholder="e.g. merchant requested by phone" />
+                </div>
+                <Button type="submit" variant="secondary" size="sm">
+                  Cancel at period end
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-red-200">
+          <CardContent className="p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-red-700 mb-3">Terminate</p>
+            <form action={terminateBusinessAction} className="space-y-3">
+              <input type="hidden" name="businessId" value={business.id} />
+              <p className="text-xs text-fade">
+                Ends billing in Stripe <span className="font-semibold">immediately</span> and locks the account out.
+                Customer data is kept, not deleted.
+              </p>
+              <div>
+                <Label htmlFor="terminate-reason">Reason (required, internal only)</Label>
+                <Input id="terminate-reason" name="reason" required placeholder="e.g. abuse, fraud, chargeback" />
+              </div>
+              <div>
+                <Label htmlFor="terminate-confirm">Type TERMINATE to confirm</Label>
+                <Input id="terminate-confirm" name="confirm" required placeholder="TERMINATE" autoComplete="off" />
+              </div>
+              <Button type="submit" variant="danger" size="sm">
+                Terminate account
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>

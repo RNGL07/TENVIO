@@ -11,6 +11,10 @@ const ACTION_LABEL: Record<string, string> = {
   reactivate: "Cleared restriction",
   comp: "Comped account",
   uncomp: "Removed comp",
+  admin_cancel: "Canceled subscription",
+  terminate: "Terminated account",
+  create_plan: "Created plan",
+  activate_plan: "Switched active plan",
 };
 
 const ACTION_TONE: Record<string, "green" | "orange" | "red" | "neutral"> = {
@@ -18,6 +22,10 @@ const ACTION_TONE: Record<string, "green" | "orange" | "red" | "neutral"> = {
   reactivate: "green",
   comp: "orange",
   uncomp: "neutral",
+  admin_cancel: "orange",
+  terminate: "red",
+  create_plan: "neutral",
+  activate_plan: "neutral",
 };
 
 export default async function AdminAuditPage({ searchParams }: { searchParams: { page?: string } }) {

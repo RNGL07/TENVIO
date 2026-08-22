@@ -163,6 +163,25 @@ export async function cancelSubscription(businessId: string): Promise<{ effectiv
   return { effectiveAt: new Date(updated.current_period_end * 1000) };
 }
 
+/**
+ * Ends a subscription in Stripe *immediately* rather than at period end —
+ * used only by admin termination (see terminateBusinessAction), never by
+ * the merchant-facing flow, which always cancels at period end so a
+ * merchant keeps what they paid for. Returns false if billing isn't live
+ * or there's no Stripe subscription to cancel, so callers can still
+ * terminate a business that never had real billing attached.
+ */
+export async function cancelSubscriptionImmediately(businessId: string): Promise<boolean> {
+  const stripe = await getStripeClient();
+  if (!stripe) return false;
+
+  const subscription = await prisma.subscription.findUnique({ where: { businessId } });
+  if (!subscription?.stripeSubscriptionId) return false;
+
+  await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+  return true;
+}
+
 /** Fetches a subscription directly from Stripe by id. Used by the webhook
  * handler's checkout.session.completed case to derive the TRUE initial
  * status (which may be "trialing", not "active" — see the trial
